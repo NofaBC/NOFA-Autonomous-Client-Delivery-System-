@@ -124,6 +124,22 @@ app/
 
 ---
 
+## 🔗 Deep Links from the Showroom
+
+The app accepts a `?tool=` URL parameter so showroom links can drop a client **directly into onboarding** — no re-selection:
+
+```
+/?tool=dlyn          → Dlyn-AI™
+/?tool=affiliate     → AffiliateLedger AI™
+/?tool=commanddesk   → CommandDesk AI™
+/?tool=techsupport   → TechSupport AI™
+/?tool=<any-slug>    → any catalog product (e.g. ?tool=freshroute-ai)
+```
+
+**Load priority:** ① URL tool context (fresh session) → ② saved workspace (returning user) → ③ tool selection screen (new visitor). The "New Onboarding" button clears storage and reloads the base URL.
+
+---
+
 ## 🚀 Running It
 
 Open `index.html` in any browser — or deploy the folder as a static site (Vercel, Netlify, GitHub Pages).
