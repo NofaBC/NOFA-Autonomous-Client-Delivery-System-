@@ -1,0 +1,1037 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NOFA Autonomous Client Delivery System™</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  :root { --accent1:#6366f1; --accent2:#a855f7; }
+  * { -webkit-font-smoothing: antialiased; }
+  body { background:#0b0d12; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  .bg-blobs::before, .bg-blobs::after {
+    content:""; position:fixed; border-radius:50%; filter:blur(120px); opacity:.22; z-index:0; pointer-events:none;
+  }
+  .bg-blobs::before { width:520px; height:520px; background:#6366f1; top:-160px; left:-120px; }
+  .bg-blobs::after  { width:460px; height:460px; background:#a855f7; bottom:-160px; right:-120px; }
+  .glass { background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); backdrop-filter:blur(10px); }
+  .screen { display:none; position:relative; z-index:1; animation:fadeUp .45s ease both; }
+  .screen.active { display:block; }
+  @keyframes fadeUp { from{opacity:0; transform:translateY(14px);} to{opacity:1; transform:translateY(0);} }
+  .tool-card { transition:transform .2s ease, border-color .2s ease, box-shadow .2s ease; }
+  .tool-card:hover { transform:translateY(-4px); border-color:rgba(99,102,241,.6); box-shadow:0 12px 40px -12px rgba(99,102,241,.45); }
+  .plan-card { transition:transform .2s ease, border-color .2s ease, box-shadow .2s ease; cursor:pointer; }
+  .plan-card:hover { transform:translateY(-4px); border-color:rgba(99,102,241,.6); }
+  .plan-card.selected { border-color:#818cf8; box-shadow:0 0 0 2px rgba(129,140,248,.5), 0 12px 40px -12px rgba(99,102,241,.5); }
+  .bubble-judy { background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.09); border-radius:16px 16px 16px 4px; animation:fadeUp .3s ease both; }
+  .bubble-user { background:linear-gradient(135deg,#6366f1,#8b5cf6); border-radius:16px 16px 4px 16px; animation:fadeUp .3s ease both; }
+  .avatar-judy { background:linear-gradient(135deg,#6366f1,#a855f7); box-shadow:0 0 0 2px rgba(168,85,247,.35); }
+  .typing-dot { width:7px; height:7px; border-radius:50%; background:#a5b4fc; display:inline-block; animation:blink 1.2s infinite; }
+  .typing-dot:nth-child(2){ animation-delay:.2s; } .typing-dot:nth-child(3){ animation-delay:.4s; }
+  @keyframes blink { 0%,80%,100%{opacity:.25; transform:translateY(0);} 40%{opacity:1; transform:translateY(-3px);} }
+  .step-row { transition:all .3s ease; }
+  .spinner { width:18px; height:18px; border:2.5px solid rgba(99,102,241,.25); border-top-color:#818cf8; border-radius:50%; animation:spin .7s linear infinite; }
+  .spinner-lg { width:40px; height:40px; border:4px solid rgba(99,102,241,.25); border-top-color:#818cf8; border-radius:50%; animation:spin .7s linear infinite; }
+  @keyframes spin { to{transform:rotate(360deg);} }
+  .check-pop { animation:pop .35s cubic-bezier(.68,-0.55,.27,1.55) both; }
+  @keyframes pop { from{transform:scale(.4); opacity:0;} to{transform:scale(1); opacity:1;} }
+  .progress-fill { transition:width .8s cubic-bezier(.4,0,.2,1); background:linear-gradient(90deg,#6366f1,#a855f7); }
+  .badge-pulse { animation:pulseBadge 2s infinite; }
+  @keyframes pulseBadge { 0%,100%{box-shadow:0 0 0 0 rgba(245,158,11,.4);} 50%{box-shadow:0 0 0 6px rgba(245,158,11,0);} }
+  .btn-primary { background:linear-gradient(135deg,#6366f1,#8b5cf6); transition:filter .15s ease, transform .15s ease; }
+  .btn-primary:hover { filter:brightness(1.12); transform:translateY(-1px); }
+  .btn-primary:disabled { opacity:.5; cursor:not-allowed; transform:none; }
+  .btn-ghost { border:1px solid rgba(255,255,255,.14); transition:background .15s ease; }
+  .btn-ghost:hover { background:rgba(255,255,255,.07); }
+  .chip { border:1px solid rgba(99,102,241,.5); transition:all .15s ease; }
+  .chip:hover { background:rgba(99,102,241,.18); }
+  .bar { background:linear-gradient(180deg,#818cf8,#6366f1); border-radius:4px 4px 0 0; transition:height .8s ease; }
+  ::-webkit-scrollbar { width:8px; } ::-webkit-scrollbar-thumb { background:rgba(255,255,255,.12); border-radius:8px; }
+  .log-dot { width:8px; height:8px; border-radius:50%; margin-top:6px; flex-shrink:0; }
+  .status-badge { font-size:10px; padding:3px 8px; border-radius:999px; border:1px solid; white-space:nowrap; }
+  .modal-bg { background:rgba(0,0,0,.65); backdrop-filter:blur(4px); }
+  .field { background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.1); border-radius:10px; padding:10px 14px; font-size:14px; color:#fff; outline:none; width:100%; }
+  .field:focus { border-color:#6366f1; }
+</style>
+</head>
+<body class="bg-blobs min-h-screen text-slate-200">
+
+<!-- ============ HEADER ============ -->
+<header class="relative z-10 max-w-6xl mx-auto px-6 pt-8 pb-4 flex items-center justify-between gap-3 flex-wrap">
+  <div class="flex items-center gap-3">
+    <div class="w-10 h-10 rounded-xl avatar-judy flex items-center justify-center font-bold text-white text-lg">N</div>
+    <div>
+      <div class="font-semibold text-white tracking-tight">NOFA Autonomous Client Delivery System™</div>
+      <div class="text-xs text-slate-400">AI Factory · Onboarding & Routing Engine</div>
+    </div>
+  </div>
+  <div class="flex items-center gap-3">
+    <a href="https://judyva.vercel.app/?tenant=NOFA-Business-Consulting" target="_blank" rel="noopener" class="btn-primary px-4 py-2 rounded-lg text-sm text-white font-semibold">💬 Talk to Judy</a>
+    <div class="text-xs px-3 py-1.5 rounded-full glass text-indigo-300">PROTOTYPE · v0.3</div>
+  </div>
+</header>
+
+<main class="max-w-6xl mx-auto px-6 pb-20 relative z-10">
+
+<!-- ============ STEP 1: TOOL SELECTION ============ -->
+<section id="screen-tools" class="screen active">
+  <div class="text-center mt-8 mb-8">
+    <h1 class="text-3xl md:text-4xl font-bold text-white tracking-tight">Select your AI solution</h1>
+    <p class="text-slate-400 mt-2">Live catalog from <a href="https://nofaaifactory.com" target="_blank" rel="noopener" class="text-indigo-400 hover:underline">nofaaifactory.com</a> — Judy onboards you, sets you up, and gets you subscribed.</p>
+  </div>
+  <div class="flex items-center gap-3 max-w-xl mx-auto mb-8">
+    <input id="tool-search" type="text" placeholder="🔍 Search AI solutions…" oninput="renderTools()" class="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-indigo-500">
+    <div id="catalog-meta" class="text-xs text-slate-400 whitespace-nowrap glass px-3 py-2 rounded-lg">Loading…</div>
+  </div>
+  <div id="tool-grid" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5"></div>
+</section>
+
+<!-- ============ STEP 2: JUDY CHAT ============ -->
+<section id="screen-chat" class="screen">
+  <div class="max-w-2xl mx-auto mt-6">
+    <div class="glass rounded-2xl overflow-hidden">
+      <div class="flex items-center gap-3 px-5 py-4 border-b border-white/10">
+        <div class="w-9 h-9 rounded-full avatar-judy flex items-center justify-center font-bold text-white">J</div>
+        <div>
+          <div class="font-semibold text-white text-sm">Judy · AI Onboarding Architect</div>
+          <div class="text-xs text-emerald-400 flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block"></span>Online</div>
+        </div>
+        <div id="chat-tool-name" class="ml-auto text-xs text-slate-400"></div>
+      </div>
+      <div id="chat-messages" class="px-5 py-5 space-y-4 h-[380px] overflow-y-auto"></div>
+      <div id="quick-replies" class="px-5 pb-5 flex gap-3 flex-wrap"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ STEP 4a: STANDARD FLOW ============ -->
+<section id="screen-standard" class="screen">
+  <div class="max-w-2xl mx-auto mt-8">
+    <div class="glass rounded-2xl p-8 text-center">
+      <div class="w-16 h-16 mx-auto rounded-full bg-emerald-500/15 border border-emerald-500/40 flex items-center justify-center text-3xl">✅</div>
+      <h2 class="text-2xl font-bold text-white mt-4">Standard Flow</h2>
+      <p class="text-slate-300 mt-2">Your setup qualifies for <span class="text-emerald-400 font-semibold">automated deployment</span>.</p>
+
+      <div class="mt-8 text-left max-w-md mx-auto">
+        <div class="text-xs uppercase tracking-wider text-slate-400 mb-3">System is configuring your AI…</div>
+        <div class="w-full h-2 rounded-full bg-white/10 overflow-hidden mb-6">
+          <div id="setup-progress" class="progress-fill h-full" style="width:0%"></div>
+        </div>
+        <div id="setup-steps" class="space-y-3"></div>
+      </div>
+
+      <div id="standard-done" class="hidden mt-8">
+        <p class="text-emerald-400 font-semibold text-lg">Your system is ready. 🎉</p>
+        <p class="text-slate-400 text-sm mt-1">One last step — pick a plan to activate your subscription.</p>
+        <button onclick="goToSubscribe()" class="btn-primary mt-4 px-8 py-3 rounded-xl text-white font-semibold">Choose Your Plan →</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ STEP 4b: CUSTOM FLOW ============ -->
+<section id="screen-custom" class="screen">
+  <div class="max-w-2xl mx-auto mt-8">
+    <div class="glass rounded-2xl p-8">
+      <div class="text-center">
+        <div class="w-16 h-16 mx-auto rounded-full bg-amber-500/15 border border-amber-500/40 flex items-center justify-center text-3xl">🔥</div>
+        <h2 class="text-2xl font-bold text-white mt-4">Custom Flow</h2>
+        <p class="text-slate-300 mt-2">This requires a <span class="text-amber-400 font-semibold">custom AI configuration</span>.</p>
+      </div>
+
+      <div class="mt-8 max-w-md mx-auto">
+        <div class="text-xs uppercase tracking-wider text-slate-400 mb-3">Onboarding Summary</div>
+        <div id="custom-summary" class="glass rounded-xl divide-y divide-white/5 text-sm"></div>
+      </div>
+
+      <div class="text-center mt-8">
+        <button id="escalate-btn" onclick="escalate()" class="btn-primary px-8 py-3 rounded-xl text-white font-semibold">👉 Escalate to AI Architect</button>
+        <div id="escalated-box" class="hidden mt-6">
+          <div class="glass rounded-xl px-5 py-4 text-sm inline-block text-left">
+            <div class="text-amber-300">✉️ Your request has been routed to <span class="font-bold text-white">Farhad</span>. Expect a response within 24 hours.</div>
+            <div id="slack-status" class="text-xs text-slate-400 mt-2"></div>
+            <div class="text-xs text-slate-400 mt-1">Farhad will follow up with a custom quote & subscription link.</div>
+          </div>
+          <div class="flex justify-center gap-3 mt-5 flex-wrap">
+            <a href="https://judyva.vercel.app/?tenant=NOFA-Business-Consulting" target="_blank" rel="noopener" class="btn-ghost px-6 py-3 rounded-xl text-white font-semibold">💬 Chat with Judy</a>
+            <button onclick="goToDashboard()" class="btn-ghost px-6 py-3 rounded-xl text-white font-semibold">Open Dashboard →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ STEP 4c: SUBSCRIPTION ============ -->
+<section id="screen-subscribe" class="screen">
+  <div class="max-w-4xl mx-auto mt-8">
+    <div class="text-center mb-8">
+      <h2 class="text-2xl md:text-3xl font-bold text-white">Activate your subscription</h2>
+      <p class="text-slate-400 mt-2"><span id="sub-tool-name" class="text-indigo-400 font-semibold"></span> is configured and ready. Choose a plan to go live.</p>
+    </div>
+    <div id="plan-grid" class="grid md:grid-cols-3 gap-5"></div>
+    <div class="text-center mt-6 text-xs text-slate-500">🔒 Secure checkout · Cancel anytime · Demo prototype — no real payment is processed</div>
+  </div>
+</section>
+
+<!-- ============ STEP 5: DASHBOARD ============ -->
+<section id="screen-dashboard" class="screen">
+  <div class="mt-6 flex items-center justify-between flex-wrap gap-3">
+    <div>
+      <h2 class="text-2xl font-bold text-white">Client Dashboard</h2>
+      <p class="text-slate-400 text-sm mt-1">NOFA AI Factory · Delivery Console</p>
+    </div>
+    <button onclick="resetAll()" class="btn-ghost px-4 py-2 rounded-lg text-sm text-slate-300">↺ Start New Onboarding</button>
+  </div>
+
+  <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-5 mt-6">
+    <!-- Tool card -->
+    <div class="glass rounded-2xl p-6">
+      <div class="text-xs uppercase tracking-wider text-slate-400">Tool Selected</div>
+      <div id="dash-tool" class="text-lg font-bold text-white mt-2">—</div>
+      <div id="dash-tool-desc" class="text-xs text-slate-400 mt-1 leading-relaxed"></div>
+      <a id="dash-tool-link" href="#" target="_blank" rel="noopener" class="text-xs text-indigo-400 hover:underline inline-block mt-3">View in catalog →</a>
+    </div>
+    <!-- Status card -->
+    <div class="glass rounded-2xl p-6">
+      <div class="text-xs uppercase tracking-wider text-slate-400">Status</div>
+      <div id="dash-status" class="mt-3"></div>
+      <div id="dash-flow" class="text-xs text-slate-500 mt-2"></div>
+    </div>
+    <!-- Subscription card -->
+    <div class="glass rounded-2xl p-6">
+      <div class="text-xs uppercase tracking-wider text-slate-400">Subscription</div>
+      <div id="dash-plan" class="mt-3"></div>
+    </div>
+    <!-- Weekly report preview -->
+    <div class="glass rounded-2xl p-6">
+      <div class="text-xs uppercase tracking-wider text-slate-400">Weekly Report Preview</div>
+      <div class="flex items-end gap-2 h-16 mt-3">
+        <div class="bar w-full" style="height:35%"></div><div class="bar w-full" style="height:55%"></div>
+        <div class="bar w-full" style="height:45%"></div><div class="bar w-full" style="height:70%"></div>
+        <div class="bar w-full" style="height:60%"></div><div class="bar w-full" style="height:85%"></div>
+        <div class="bar w-full" style="height:100%"></div>
+      </div>
+      <div class="text-xs text-slate-500 mt-2">↑ +18% this week (simulated)</div>
+    </div>
+  </div>
+
+  <!-- Activity log -->
+  <div class="glass rounded-2xl p-6 mt-5">
+    <div class="flex items-center justify-between flex-wrap gap-3">
+      <div class="text-xs uppercase tracking-wider text-slate-400">Activity Log</div>
+      <button onclick="askSupport()" class="btn-primary px-4 py-2 rounded-lg text-sm text-white font-semibold">💬 Ask Support</button>
+    </div>
+    <div id="activity-log" class="mt-4 space-y-3 text-sm"></div>
+  </div>
+</section>
+</main>
+
+<!-- ============ CHECKOUT MODAL ============ -->
+<div id="checkout-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-bg">
+  <div class="rounded-2xl w-full max-w-md overflow-hidden border border-white/10" style="background:#12151d;">
+    <div class="px-6 py-4 border-b border-white/10 flex items-center justify-between">
+      <div class="font-semibold text-white text-sm">🔒 Checkout — <span id="co-plan-name"></span></div>
+      <button onclick="closeCheckout()" class="text-slate-400 hover:text-white text-xl leading-none">×</button>
+    </div>
+    <div id="co-form" class="px-6 py-5 space-y-3">
+      <input id="co-name" class="field" type="text" placeholder="Name on card">
+      <input id="co-card" class="field" type="text" placeholder="Card number" maxlength="19" value="4242 4242 4242 4242">
+      <div class="flex gap-3">
+        <input id="co-exp" class="field" type="text" placeholder="MM / YY" maxlength="7" value="12 / 28">
+        <input id="co-cvc" class="field" type="text" placeholder="CVC" maxlength="4" value="123">
+      </div>
+      <button id="co-pay-btn" onclick="processPayment()" class="btn-primary w-full py-3 rounded-xl text-white font-semibold mt-2"></button>
+      <div class="text-center text-xs text-slate-500">Demo checkout — no real payment is processed</div>
+    </div>
+    <div id="co-processing" class="hidden px-6 py-12 text-center">
+      <div class="spinner-lg mx-auto"></div>
+      <div class="text-slate-300 text-sm mt-4">Processing payment…</div>
+    </div>
+    <div id="co-success" class="hidden px-6 py-12 text-center">
+      <div class="check-pop w-16 h-16 mx-auto rounded-full bg-emerald-500/15 border border-emerald-500/40 flex items-center justify-center text-3xl text-emerald-400">✔</div>
+      <div class="text-emerald-400 font-semibold text-lg mt-4">Subscription activated! 🎉</div>
+      <div class="text-slate-400 text-sm mt-1">Welcome aboard.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ================= CONFIG ================= */
+const JUDY_URL = 'https://judyva.vercel.app/?tenant=NOFA-Business-Consulting';
+const CATALOG_API = 'https://www.nofaaifactory.com/api/products';
+const CATALOG_BASE = 'https://www.nofaaifactory.com/products/';
+
+/* 👇 Paste your Slack Incoming Webhook URL here to enable REAL notifications.
+   (Slack App → Incoming Webhooks → copy https://hooks.slack.com/services/…)
+   Leave empty to run in simulated mode. */
+const SLACK_WEBHOOK_URL = '';
+
+const PLANS = [
+  { id:'starter', name:'Starter',      price:49,  tagline:'For getting started',  features:['1 AI tool','Standard automation','Email support','Weekly reports'] },
+  { id:'pro',     name:'Professional', price:99,  tagline:'Most popular',         features:['Up to 3 AI tools','Priority automation','Judy live support','Weekly reports + insights'], featured:true },
+  { id:'business',name:'Business',     price:199, tagline:'For scaling teams',    features:['Unlimited AI tools','Custom integrations','Dedicated success manager','Real-time analytics'] }
+];
+
+/* ================= STATE ================= */
+let appState = {
+  selectedTool: null,
+  answers: {},
+  classification: null,   // "standard" | "custom"
+  status: null,           // "Active" | "Pending Customization"
+  plan: null,             // plan id
+  activityLog: []
+};
+
+/* Catalog snapshot (fallback if live fetch fails) — live list loads from nofaaifactory.com */
+let TOOLS = [
+  {
+    "name": "GrantPitch™",
+    "slug": "grantpitch",
+    "desc": "AI-powered grant writing assistant that transforms a simple project idea into a clear, funder-ready grant summary.",
+    "status": "live_prototype",
+    "statusLabel": "🚀 Live Prototype"
+  },
+  {
+    "name": "MeetFlow AI™",
+    "slug": "meetflow-ai",
+    "desc": "AI-powered networking platform that matches attendees with the right people and guides meaningful connections at events.",
+    "status": "prototype_ready",
+    "statusLabel": "🏷 Prototype Ready"
+  },
+  {
+    "name": "NOFA Validation Engine™",
+    "slug": "nofa-validation-engine",
+    "desc": "AI-powered validation intelligence that turns customer success signals into authentic reviews, testimonials, case studies, and business proof.",
+    "status": "live_prototype",
+    "statusLabel": "🚀 Live Prototype"
+  },
+  {
+    "name": "JudyNews™",
+    "slug": "judynews",
+    "desc": "Conversational AI news intelligence platform that helps users understand, discuss, report, and respond to important news events.",
+    "status": "live_prototype",
+    "statusLabel": "🚀 Live Prototype"
+  },
+  {
+    "name": "EduWing™",
+    "slug": "eduwing",
+    "desc": "AI-powered tutor for Kindergarten through K–12 that provides personalized learning across multiple subjects and languages.",
+    "status": "live_prototype",
+    "statusLabel": "🚀 Live Prototype"
+  },
+  {
+    "name": "Offer Expander AI™",
+    "slug": "offer-expander-ai",
+    "desc": "AI-powered offer strategy platform that turns existing services into smarter upsells, bundles, subscriptions, and tiered revenue packages.",
+    "status": "live_prototype",
+    "statusLabel": "🚀 Live Prototype"
+  },
+  {
+    "name": "JudyCampaign™",
+    "slug": "judycampaign",
+    "desc": "AI-powered interactive advertising platform that transforms ads into conversations with a 24/7 AI assistant.",
+    "status": "prototype_ready",
+    "statusLabel": "🏷 Prototype Ready"
+  },
+  {
+    "name": "Paycheck Pilot AI™",
+    "slug": "paycheck-pilot-ai",
+    "desc": "AI-powered paycheck planner that helps users organize bills, debts, savings, and spending into a clear plan for each paycheck.",
+    "status": "live_prototype",
+    "statusLabel": "🚀 Live Prototype"
+  },
+  {
+    "name": "AI Startup Factory™",
+    "slug": "ai-startup-factory",
+    "desc": "AI-powered startup manufacturing system that transforms raw business ideas into validated, architected, build-ready software products.",
+    "status": "live_prototype",
+    "statusLabel": "🚀 Live Prototype"
+  },
+  {
+    "name": "Portfolio Intelligence AI™",
+    "slug": "portfolio-intelligence-ai",
+    "desc": "AI-powered portfolio analysis platform for comparing businesses, identifying risks, assessing AI readiness, and prioritizing investment opportunities.",
+    "status": "live_prototype",
+    "statusLabel": "🚀 Live Prototype"
+  },
+  {
+    "name": "GovFlow AI™",
+    "slug": "govflow-ai",
+    "desc": "AI-powered government risk platform that forecasts shutdown threats, maps their economic impact, and explores possible compromise pathways.",
+    "status": "live_prototype",
+    "statusLabel": "🚀 Live Prototype"
+  },
+  {
+    "name": "EdgeZen AI™",
+    "slug": "edgezen-ai",
+    "desc": "AI-powered wellness companion that helps you reset your energy in seven quiet minutes with personalized guided sessions.",
+    "status": "live_prototype",
+    "statusLabel": "🚀 Live Prototype"
+  },
+  {
+    "name": "CommandDesk AI™",
+    "slug": "commanddesk-ai",
+    "desc": "Customizable AI-powered customer command center that monitors inquiries, responds instantly, and routes issues to the right AI or team.",
+    "status": "live_saas",
+    "statusLabel": "✅ Live SaaS"
+  },
+  {
+    "name": "JudyVA™",
+    "slug": "judyva",
+    "desc": "Customizable AI-powered virtual assistant that can be deployed on almost any website to answer questions, qualify leads, support customers, and represent your business 24/7.",
+    "status": "live_saas",
+    "statusLabel": "✅ Live SaaS"
+  },
+  {
+    "name": "ConstructionPilot AI™",
+    "slug": "constructionpilot-ai",
+    "desc": "AI-powered construction command center for project scheduling, crews, materials, costs, safety, field reporting, and operational risk.",
+    "status": "live_prototype",
+    "statusLabel": "🚀 Live Prototype"
+  },
+  {
+    "name": "AI Gold Rush™",
+    "slug": "ai-gold-rush",
+    "desc": "Licensed AI Store program that empowers entrepreneurs to launch and grow AI businesses using NOFA-built products and support.",
+    "status": "live_prototype",
+    "statusLabel": "🚀 Live Prototype"
+  },
+  {
+    "name": "NOFA CRM™",
+    "slug": "nofa-crm",
+    "desc": "AI-powered CRM that helps businesses manage contacts, sales pipelines, tasks, and customer relationships from one intelligent workspace.",
+    "status": "live_prototype",
+    "statusLabel": "🚀 Live Prototype"
+  },
+  {
+    "name": "Dlyn-AI™",
+    "slug": "dlyn-ai",
+    "desc": "AI-powered career platform that helps job seekers discover opportunities, optimize applications, and accelerate their job search.",
+    "status": "live_saas",
+    "statusLabel": "✅ Live SaaS"
+  },
+  {
+    "name": "Insight Miner™",
+    "slug": "insight-miner",
+    "desc": "AI-powered audience intelligence platform that turns Reddit conversations into trends, personas, pain points, and actionable marketing playbooks.",
+    "status": "live_prototype",
+    "statusLabel": "🚀 Live Prototype"
+  },
+  {
+    "name": "JudyBid Analyze™",
+    "slug": "judybid-analyze",
+    "desc": "AI-powered bid-matching and opportunity review tool that helps businesses identify stronger-fit government opportunities before pursuing them.",
+    "status": "live_prototype",
+    "statusLabel": "🚀 Live Prototype"
+  },
+  {
+    "name": "WorkWing AI Factory™",
+    "slug": "workwing-ai-factory",
+    "desc": "Prototype platform for launching an AI store, leasing NOFA tools, reselling under your own brand, or commissioning a custom AI product.",
+    "status": "live_prototype",
+    "statusLabel": "🚀 Live Prototype"
+  },
+  {
+    "name": "Magazinify AI™",
+    "slug": "magazinify-ai",
+    "desc": "AI-powered platform that transforms your business website into a professionally designed digital magazine every month.",
+    "status": "live_saas",
+    "statusLabel": "✅ Live SaaS"
+  },
+  {
+    "name": "RoleFit AI™",
+    "slug": "rolefit-ai",
+    "desc": "AI-powered hiring copilot that builds role profiles, scores candidates, and helps teams make smarter, bias-aware hiring decisions.",
+    "status": "live_prototype",
+    "statusLabel": "🚀 Live Prototype"
+  },
+  {
+    "name": "AffiliateLedger AI™",
+    "slug": "affiliateledger-ai",
+    "desc": "AI-powered affiliate commission platform that tracks sales, calculates payouts, and closes monthly commissions with confidence.",
+    "status": "in_development",
+    "statusLabel": "🏗 In Development"
+  },
+  {
+    "name": "TestMind AI™",
+    "slug": "testmind-ai",
+    "desc": "AI-powered exam blueprint analyzer that reveals how tests are designed and generates realistic practice exams.",
+    "status": "in_development",
+    "statusLabel": "🏗 In Development"
+  },
+  {
+    "name": "JudyTutor™",
+    "slug": "judytutor",
+    "desc": "AI-powered personal tutor that adapts to your learning journey, builds confidence, and helps you prepare for professional and academic exams.",
+    "status": "live_prototype",
+    "statusLabel": "🚀 Live Prototype"
+  },
+  {
+    "name": "EcoForecast AI™",
+    "slug": "ecoforecast-ai",
+    "desc": "AI-powered forecasting platform that analyzes how global events may impact local businesses, demand, costs, and profitability.",
+    "status": "live_prototype",
+    "statusLabel": "🚀 Live Prototype"
+  },
+  {
+    "name": "ProcessLens AI™",
+    "slug": "processlens-ai",
+    "desc": "See how your business really works—and discover what to automate first with AI-powered workflow analysis.",
+    "status": "live_prototype",
+    "statusLabel": "🚀 Live Prototype"
+  },
+  {
+    "name": "TechSupport AI™",
+    "slug": "techsupport-ai",
+    "desc": "Customizable AI-powered technical support platform that answers calls, resolves common issues, and seamlessly escalates complex cases.",
+    "status": "live_saas",
+    "statusLabel": "✅ Live SaaS"
+  },
+  {
+    "name": "JudyProspect AI™",
+    "slug": "judyprospect-ai",
+    "desc": "AI-powered prospect discovery platform that finds potential customers, researches their businesses, and generates personalized outreach opportunities.",
+    "status": "live_prototype",
+    "statusLabel": "🚀 Live Prototype"
+  },
+  {
+    "name": "Medical Claim Guardian AI™",
+    "slug": "medical-claim-guardian-ai",
+    "desc": "AI-powered healthcare financial advocacy platform for reviewing claims, tracking insurance limits, managing appeals, and identifying coverage options.",
+    "status": "live_prototype",
+    "statusLabel": "🚀 Live Prototype"
+  },
+  {
+    "name": "AdviNurse AI™",
+    "slug": "advinurse-ai",
+    "desc": "AI-powered advice nurse assistant that helps explain symptoms, provide health guidance, and prepare patients for appropriate next steps—not a doctor.",
+    "status": "live_prototype",
+    "statusLabel": "🚀 Live Prototype"
+  },
+  {
+    "name": "VendorGuard AI™",
+    "slug": "vendorguard-ai",
+    "desc": "AI-powered vendor risk, contract, renewal, compliance, cost, and performance management from one centralized dashboard.",
+    "status": "live_prototype",
+    "statusLabel": "🚀 Live Prototype"
+  },
+  {
+    "name": "VoiceFunnel AI™",
+    "slug": "voicefunnel-ai",
+    "desc": "AI-powered voicemail marketing platform that turns your website into personalized voice campaigns that drive more callbacks.",
+    "status": "live_prototype",
+    "statusLabel": "🚀 Live Prototype"
+  },
+  {
+    "name": "RevenuePilot AI™",
+    "slug": "revenuepilot-ai",
+    "desc": "AI-powered revenue copilot that helps small businesses forecast cash flow, prioritize receivables, and make smarter revenue decisions.",
+    "status": "live_prototype",
+    "statusLabel": "🚀 Live Prototype"
+  },
+  {
+    "name": "IntelliScan AI™",
+    "slug": "intelliscan-ai",
+    "desc": "AI website scanner that detects automation gaps and recommends practical solutions to reduce workload, improve response, and grow revenue.",
+    "status": "live_saas",
+    "statusLabel": "✅ Live SaaS"
+  },
+  {
+    "name": "CognifyCare AI™",
+    "slug": "cognifycare-ai",
+    "desc": "AI-powered companion care assistant that provides 24/7 reminders, conversations, and safety check-ins for older adults and individuals needing daily support.",
+    "status": "live_prototype",
+    "statusLabel": "🚀 Live Prototype"
+  },
+  {
+    "name": "FreshRoute AI™",
+    "slug": "freshroute-ai",
+    "desc": "AI-powered delivery, inventory, route, and settlement platform for distributors managing drivers, stores, warehouses, and product flow.",
+    "status": "live_prototype",
+    "statusLabel": "🚀 Live Prototype"
+  },
+  {
+    "name": "Suspect Lead Sheet AI™",
+    "slug": "suspect-lead-sheet-ai",
+    "desc": "AI-powered investigative assistant that creates evidence-based suspect lead sheets while avoiding unsupported conclusions and protected-attribute inferences.",
+    "status": "live_prototype",
+    "statusLabel": "🚀 Live Prototype"
+  },
+  {
+    "name": "JudyOps AI™",
+    "slug": "judyops-ai",
+    "desc": "AI-powered operations assistant that helps small businesses capture requests, follow up with leads, route tasks, and keep work from falling through the cracks.",
+    "status": "live_prototype",
+    "statusLabel": "🚀 Live Prototype"
+  },
+  {
+    "name": "ToolTruth AI™",
+    "slug": "tooltruth-ai",
+    "desc": "AI-powered due diligence platform that evaluates AI tools, marketing claims, and vendor promises before you invest.",
+    "status": "live_prototype",
+    "statusLabel": "🚀 Live Prototype"
+  }
+];
+
+const ONBOARDING_STEPS = [
+  { key:'stripe', type:'info',
+    html:`For payments, we connect <b>Stripe</b>.<br>Don't have an account yet? You can create one here → <a href="https://stripe.com" target="_blank" rel="noopener" class="text-indigo-400 font-semibold hover:underline">stripe.com</a> 🔗`,
+    replies:[
+      { label:'I have Stripe ✔', value:'yes' },
+      { label:"I'll set it up →", value:'yes', note:'Client will create a Stripe account (link provided)' }
+    ] },
+  { key:'affiliates', type:'question', text:'Do you have affiliates already?',
+    replies:[ { label:'Yes', value:'yes' }, { label:'No', value:'no' } ] },
+  { key:'customRules', type:'question', text:'Do you need custom commission rules?',
+    replies:[ { label:'Yes', value:'yes' }, { label:'No', value:'no' } ] }
+];
+
+/* Product status messaging — Judy sets expectations based on catalog status */
+function statusMessage(tool) {
+  const map = {
+    live_saas:        `✅ <b>${esc(tool.name)}</b> is a <b>Live SaaS</b> product — fully deployed and running.`,
+    live_prototype:   `🚀 <b>${esc(tool.name)}</b> is currently a <b>Live Prototype</b> — you're getting early access while we finalize the full SaaS version.`,
+    prototype_ready:  `🏷 <b>${esc(tool.name)}</b> is <b>Prototype Ready</b> — I can spin up your demo environment right away.`,
+    in_development:   `🏗 <b>${esc(tool.name)}</b> is currently <b>In Development</b> — you'll be among the very first to get access.`
+  };
+  return map[tool.status] || `ℹ️ <b>${esc(tool.name)}</b> status: ${esc(tool.statusLabel || tool.status || 'available')}.`;
+}
+
+/* ================= CLASSIFICATION (CORE LOGIC) ================= */
+function classifyRequest(answers) {
+  if (
+    answers.stripe === "yes" &&
+    answers.affiliates === "yes" &&
+    answers.customRules === "no"
+  ) {
+    return "standard";
+  } else {
+    return "custom";
+  }
+}
+
+/* ================= HELPERS ================= */
+function save() { try { localStorage.setItem('nofaDeliveryState', JSON.stringify(appState)); } catch(e){} }
+function show(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+function now() { return new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}); }
+function logActivity(text, color) {
+  appState.activityLog.unshift({ text, time: now(), color: color || '#818cf8' });
+  save();
+}
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function statusStyle(status) {
+  switch(status) {
+    case 'live_saas':        return 'color:#34d399; border-color:rgba(52,211,153,.4); background:rgba(52,211,153,.08);';
+    case 'live_prototype':   return 'color:#818cf8; border-color:rgba(129,140,248,.4); background:rgba(129,140,248,.08);';
+    case 'in_development':   return 'color:#fbbf24; border-color:rgba(251,191,36,.4); background:rgba(251,191,36,.08);';
+    default:                 return 'color:#cbd5e1; border-color:rgba(203,213,225,.3); background:rgba(203,213,225,.06);';
+  }
+}
+
+/* ================= SLACK NOTIFICATIONS ================= */
+async function notifySlack(text) {
+  if (!SLACK_WEBHOOK_URL) return { sent:false, simulated:true };
+  try {
+    /* no-cors: browser can deliver the POST; Slack still parses the JSON body */
+    await fetch(SLACK_WEBHOOK_URL, { method:'POST', mode:'no-cors', body: JSON.stringify({ text }) });
+    return { sent:true };
+  } catch(e) {
+    return { sent:false, error:true };
+  }
+}
+
+/* Alert Farhad when a client onboards a prototype-status product (not yet Live SaaS) */
+async function alertPrototypeInterest(tool) {
+  const text =
+    `🚀 *Prototype demand signal — NOFA Autonomous Client Delivery*\n` +
+    `• Tool: *${tool.name}*\n` +
+    `• Status: ${tool.statusLabel || tool.status}\n` +
+    `• A client just started onboarding this prototype\n` +
+    `• 💡 Demand signal — candidate to prioritize for full SaaS build\n` +
+    `• Time: ${new Date().toLocaleString()}`;
+  const result = await notifySlack(text);
+  if (result.sent) {
+    logActivity(`Prototype selection — <span class="text-emerald-400">Farhad alerted via Slack ✔</span>`, '#fbbf24');
+  } else if (result.simulated) {
+    logActivity(`Prototype selection — Slack alert to Farhad <span class="text-amber-400">simulated</span> (no webhook configured)`, '#fbbf24');
+  } else {
+    logActivity(`Prototype selection — Slack alert to Farhad <span class="text-rose-400">failed</span>`, '#fbbf24');
+  }
+  save();
+}
+
+/* ================= LIVE CATALOG ================= */
+async function loadCatalog() {
+  try {
+    const res = await fetch(CATALOG_API);
+    const data = await res.json();
+    if (data && Array.isArray(data.products) && data.products.length) {
+      TOOLS = data.products.map(p => ({
+        name: p.name, slug: p.slug, desc: p.shortDescription,
+        status: p.status, statusLabel: p.statusLabel || p.status
+      }));
+      document.getElementById('catalog-meta').textContent = `🟢 Live · ${TOOLS.length} products`;
+      renderTools();
+      return;
+    }
+    throw new Error('empty');
+  } catch(e) {
+    document.getElementById('catalog-meta').textContent = `📦 Snapshot · ${TOOLS.length} products`;
+    renderTools();
+  }
+}
+
+/* ================= STEP 1: TOOL SELECTION ================= */
+function renderTools() {
+  const q = (document.getElementById('tool-search').value || '').toLowerCase();
+  const grid = document.getElementById('tool-grid');
+  grid.innerHTML = '';
+  const list = TOOLS.filter(t => !q || t.name.toLowerCase().includes(q) || (t.desc||'').toLowerCase().includes(q));
+  if (!list.length) {
+    grid.innerHTML = '<div class="col-span-full text-center text-slate-500 py-10">No solutions match your search.</div>';
+    return;
+  }
+  list.forEach(t => {
+    const card = document.createElement('div');
+    card.className = 'tool-card glass rounded-2xl p-5 flex flex-col';
+    card.innerHTML = `
+      <div class="flex items-start justify-between gap-2">
+        <div class="text-base font-bold text-white leading-snug">${esc(t.name)}</div>
+        <span class="status-badge" style="${statusStyle(t.status)}">${esc(t.statusLabel)}</span>
+      </div>
+      <p class="text-sm text-slate-400 mt-2 leading-relaxed flex-1">${esc(t.desc)}</p>
+      <div class="flex items-center gap-3 mt-4">
+        <button class="btn-primary px-5 py-2 rounded-lg text-sm text-white font-semibold select-btn">Select →</button>
+        <a href="${CATALOG_BASE + t.slug}" target="_blank" rel="noopener" class="text-xs text-indigo-400 hover:underline">Learn More</a>
+      </div>`;
+    card.querySelector('.select-btn').onclick = () => selectTool(t);
+    grid.appendChild(card);
+  });
+}
+
+function selectTool(tool) {
+  appState.selectedTool = tool;
+  appState.answers = {};
+  appState.classification = null;
+  appState.status = null;
+  appState.plan = null;
+  logActivity(`Selected <b class="text-white">${esc(tool.name)}</b> — onboarding initiated`, '#818cf8');
+  if (tool.status && tool.status !== 'live_saas') alertPrototypeInterest(tool);
+  document.getElementById('chat-tool-name').textContent = tool.name;
+  document.getElementById('chat-messages').innerHTML = '';
+  document.getElementById('quick-replies').innerHTML = '';
+  show('screen-chat');
+  setTimeout(() => {
+    judySay(`Great choice. Let's set up <b>${esc(tool.name)}</b>.`, () => {
+      judySay(statusMessage(tool) + '<br>I need a few details to get started.', () => askQuestion(0));
+    });
+  }, 500);
+}
+
+/* ================= STEP 2: JUDY CHAT ================= */
+function scrollChat() {
+  const box = document.getElementById('chat-messages');
+  box.scrollTop = box.scrollHeight;
+}
+function judySay(html, cb) {
+  const box = document.getElementById('chat-messages');
+  const typing = document.createElement('div');
+  typing.className = 'flex items-start gap-3';
+  typing.innerHTML = `<div class="w-8 h-8 rounded-full avatar-judy flex items-center justify-center font-bold text-white text-sm flex-shrink-0">J</div>
+    <div class="bubble-judy px-4 py-3 text-sm"><span class="typing-dot"></span> <span class="typing-dot"></span> <span class="typing-dot"></span></div>`;
+  box.appendChild(typing); scrollChat();
+  setTimeout(() => {
+    typing.remove();
+    const msg = document.createElement('div');
+    msg.className = 'flex items-start gap-3';
+    msg.innerHTML = `<div class="w-8 h-8 rounded-full avatar-judy flex items-center justify-center font-bold text-white text-sm flex-shrink-0">J</div>
+      <div class="bubble-judy px-4 py-3 text-sm text-slate-200 max-w-[80%]">${html}</div>`;
+    box.appendChild(msg); scrollChat();
+    if (cb) setTimeout(cb, 450);
+  }, 1000 + Math.random() * 500);
+}
+function userSay(text) {
+  const box = document.getElementById('chat-messages');
+  const msg = document.createElement('div');
+  msg.className = 'flex justify-end';
+  msg.innerHTML = `<div class="bubble-user px-4 py-2.5 text-sm text-white max-w-[80%]">${text}</div>`;
+  box.appendChild(msg); scrollChat();
+}
+
+function askQuestion(i) {
+  if (i >= ONBOARDING_STEPS.length) { finishOnboarding(); return; }
+  const step = ONBOARDING_STEPS[i];
+  judySay(step.type === 'info' ? step.html : step.text, () => {
+    const qr = document.getElementById('quick-replies');
+    qr.innerHTML = '';
+    step.replies.forEach(r => {
+      const btn = document.createElement('button');
+      btn.className = 'chip px-6 py-2 rounded-full text-sm text-indigo-300 font-semibold';
+      btn.textContent = r.label;
+      btn.onclick = () => {
+        qr.innerHTML = '';
+        userSay(r.label);
+        appState.answers[step.key] = r.value;
+        if (r.note) logActivity(r.note, '#818cf8');
+        save();
+        setTimeout(() => askQuestion(i + 1), 500);
+      };
+      qr.appendChild(btn);
+    });
+  });
+}
+
+function finishOnboarding() {
+  judySay('Analyzing your setup… 🔍', () => {
+    appState.classification = classifyRequest(appState.answers);
+    save();
+    if (appState.classification === 'standard') {
+      logActivity('Classification: <b class="text-emerald-400">Standard Flow</b> — automated deployment approved', '#34d399');
+      judySay('✅ Good news — your setup qualifies for <b>automated deployment</b>. Starting configuration now.', () => {
+        setTimeout(() => { show('screen-standard'); runSetupAnimation(); }, 800);
+      });
+    } else {
+      logActivity('Classification: <b class="text-amber-400">Custom Flow</b> — requires AI Architect review', '#fbbf24');
+      judySay('🔥 Your requirements need a <b>custom AI configuration</b>. Let me show you the details.', () => {
+        setTimeout(() => { show('screen-custom'); renderCustomSummary(); }, 800);
+      });
+    }
+  });
+}
+
+/* ================= STEP 4a: STANDARD FLOW ================= */
+function runSetupAnimation() {
+  const steps = ['Connecting Stripe', 'Creating commission rules', 'Initializing dashboard'];
+  const container = document.getElementById('setup-steps');
+  const progress = document.getElementById('setup-progress');
+  document.getElementById('standard-done').classList.add('hidden');
+  container.innerHTML = '';
+  progress.style.width = '0%';
+
+  steps.forEach((s) => {
+    const row = document.createElement('div');
+    row.className = 'step-row flex items-center gap-3 text-sm text-slate-400';
+    row.innerHTML = `<div class="step-icon w-[18px] flex justify-center"><div class="spinner" style="visibility:hidden"></div></div><span>${s}</span>`;
+    container.appendChild(row);
+  });
+
+  let i = 0;
+  function nextStep() {
+    if (i >= steps.length) {
+      document.getElementById('standard-done').classList.remove('hidden');
+      logActivity('Automated setup completed — ready for <b class="text-white">subscription activation</b>', '#34d399');
+      save();
+      return;
+    }
+    const row = container.children[i];
+    const icon = row.querySelector('.step-icon');
+    icon.querySelector('.spinner').style.visibility = 'visible';
+    row.classList.replace('text-slate-400', 'text-white');
+    progress.style.width = ((i + 1) / steps.length * 100) + '%';
+    setTimeout(() => {
+      icon.innerHTML = '<span class="check-pop text-emerald-400 font-bold">✔</span>';
+      logActivity(`${steps[i]} <span class="text-emerald-400">✔</span>`, '#34d399');
+      i++;
+      setTimeout(nextStep, 600);
+    }, 1100);
+  }
+  setTimeout(nextStep, 500);
+}
+
+/* ================= STEP 4b: CUSTOM FLOW + SLACK ================= */
+function renderCustomSummary() {
+  const labels = { stripe:'Uses Stripe', affiliates:'Has affiliates', customRules:'Needs custom commission rules' };
+  const box = document.getElementById('custom-summary');
+  box.innerHTML = '';
+  Object.keys(labels).forEach(k => {
+    const v = appState.answers[k] || '—';
+    const yes = v === 'yes';
+    box.innerHTML += `<div class="flex justify-between px-4 py-3">
+      <span class="text-slate-400">${labels[k]}</span>
+      <span class="font-semibold ${yes ? 'text-emerald-400' : 'text-rose-400'}">${yes ? 'Yes' : 'No'}</span></div>`;
+  });
+  box.innerHTML += `<div class="flex justify-between px-4 py-3">
+    <span class="text-slate-400">Selected tool</span><span class="font-semibold text-white">${esc(appState.selectedTool.name)}</span></div>`;
+  document.getElementById('escalate-btn').classList.remove('hidden');
+  document.getElementById('escalated-box').classList.add('hidden');
+}
+
+async function escalate() {
+  document.getElementById('escalate-btn').classList.add('hidden');
+  document.getElementById('escalated-box').classList.remove('hidden');
+  appState.status = 'Pending Customization';
+  save();
+
+  const slackEl = document.getElementById('slack-status');
+  slackEl.innerHTML = '<span class="text-slate-500">📣 Sending Slack notification to Farhad…</span>';
+  const a = appState.answers;
+  const text =
+    `🔥 *Custom AI request — NOFA Autonomous Client Delivery*\n` +
+    `• Tool: *${appState.selectedTool.name}* (${appState.selectedTool.statusLabel || appState.selectedTool.status})\n` +
+    `• Stripe: ${a.stripe === 'yes' ? 'Yes/link provided' : 'No'}  |  Affiliates: ${a.affiliates === 'yes' ? 'Yes' : 'No'}  |  Custom rules: ${a.customRules === 'yes' ? 'Yes' : 'No'}\n` +
+    `• Route: Custom Flow (AI Architect review needed)\n` +
+    `• Time: ${new Date().toLocaleString()}`;
+  const result = await notifySlack(text);
+
+  if (result.sent) {
+    slackEl.innerHTML = '<span class="text-emerald-400">📣 Slack notification delivered to Farhad ✔</span>';
+    logActivity('Escalated to <b class="text-white">Farhad (AI Architect)</b> — <span class="text-emerald-400">Slack notification sent ✔</span>', '#fbbf24');
+  } else if (result.simulated) {
+    slackEl.innerHTML = '<span class="text-amber-400">📣 Slack notification simulated — add webhook URL to enable real alerts</span>';
+    logActivity('Escalated to <b class="text-white">Farhad (AI Architect)</b> — Slack notification <span class="text-amber-400">simulated</span> (no webhook configured)', '#fbbf24');
+  } else {
+    slackEl.innerHTML = '<span class="text-rose-400">📣 Slack notification failed — request is still logged</span>';
+    logActivity('Escalated to <b class="text-white">Farhad (AI Architect)</b> — Slack notification <span class="text-rose-400">failed</span>', '#fbbf24');
+  }
+  save();
+}
+
+/* ================= STEP 4c: SUBSCRIPTION ================= */
+let selectedPlanId = null;
+
+function goToSubscribe() {
+  document.getElementById('sub-tool-name').textContent = appState.selectedTool ? appState.selectedTool.name : '';
+  renderPlans();
+  show('screen-subscribe');
+}
+
+function renderPlans() {
+  const grid = document.getElementById('plan-grid');
+  grid.innerHTML = '';
+  PLANS.forEach(p => {
+    const card = document.createElement('div');
+    card.className = 'plan-card glass rounded-2xl p-6 relative' + (p.featured ? ' border-indigo-500/60' : '');
+    card.innerHTML = `
+      ${p.featured ? '<div class="absolute -top-3 left-1/2 -translate-x-1/2 text-[10px] font-bold px-3 py-1 rounded-full text-white" style="background:linear-gradient(135deg,#6366f1,#a855f7)">MOST POPULAR</div>' : ''}
+      <div class="text-lg font-bold text-white">${p.name}</div>
+      <div class="text-xs text-slate-400 mt-0.5">${p.tagline}</div>
+      <div class="mt-4"><span class="text-3xl font-bold text-white">$${p.price}</span><span class="text-slate-400 text-sm">/mo</span></div>
+      <ul class="mt-4 space-y-2 text-sm text-slate-300">
+        ${p.features.map(f => `<li class="flex gap-2"><span class="text-emerald-400">✔</span>${f}</li>`).join('')}
+      </ul>
+      <button class="btn-primary w-full mt-6 py-2.5 rounded-xl text-white font-semibold text-sm">Subscribe →</button>`;
+    card.querySelector('button').onclick = (e) => { e.stopPropagation(); openCheckout(p.id); };
+    card.onclick = () => openCheckout(p.id);
+    grid.appendChild(card);
+  });
+}
+
+function openCheckout(planId) {
+  selectedPlanId = planId;
+  const plan = PLANS.find(p => p.id === planId);
+  document.getElementById('co-plan-name').textContent = plan.name;
+  document.getElementById('co-pay-btn').textContent = `Pay $${plan.price}/mo — Activate`;
+  document.getElementById('co-form').classList.remove('hidden');
+  document.getElementById('co-processing').classList.add('hidden');
+  document.getElementById('co-success').classList.add('hidden');
+  document.getElementById('checkout-modal').classList.remove('hidden');
+}
+function closeCheckout() { document.getElementById('checkout-modal').classList.add('hidden'); }
+
+function processPayment() {
+  const name = document.getElementById('co-name').value.trim();
+  if (!name) { document.getElementById('co-name').focus(); document.getElementById('co-name').style.borderColor = '#f43f5e'; return; }
+  const plan = PLANS.find(p => p.id === selectedPlanId);
+  document.getElementById('co-form').classList.add('hidden');
+  document.getElementById('co-processing').classList.remove('hidden');
+
+  setTimeout(() => {
+    document.getElementById('co-processing').classList.add('hidden');
+    document.getElementById('co-success').classList.remove('hidden');
+    appState.plan = plan.id;
+    appState.status = 'Active';
+    logActivity(`Subscribed to <b class="text-white">${plan.name} — $${plan.price}/mo</b> 💳`, '#a78bfa');
+    logActivity('Subscription active — system is <b class="text-emerald-400">live</b> 🎉', '#34d399');
+    save();
+    setTimeout(() => { closeCheckout(); goToDashboard(); }, 1600);
+  }, 1800);
+}
+
+/* ================= STEP 5: DASHBOARD ================= */
+function goToDashboard() {
+  if (!appState.status) appState.status = appState.classification === 'standard' ? 'Active' : 'Pending Customization';
+  save();
+  renderDashboard();
+  show('screen-dashboard');
+}
+
+function renderDashboard() {
+  const t = appState.selectedTool;
+  document.getElementById('dash-tool').innerHTML = t
+    ? `${esc(t.name)}<br><span class="status-badge inline-block mt-2" style="${statusStyle(t.status)}">${esc(t.statusLabel || t.status)}</span>`
+    : '—';
+  document.getElementById('dash-tool-desc').textContent = t ? (t.desc || '') : '';
+  document.getElementById('dash-tool-link').href = t && t.slug ? CATALOG_BASE + t.slug : 'https://www.nofaaifactory.com/catalog';
+
+  const statusEl = document.getElementById('dash-status');
+  if (appState.status === 'Active') {
+    statusEl.innerHTML = `<span class="px-3 py-1.5 rounded-full text-sm font-semibold bg-emerald-500/15 border border-emerald-500/40 text-emerald-400">● Active</span>`;
+  } else {
+    statusEl.innerHTML = `<span class="badge-pulse px-3 py-1.5 rounded-full text-sm font-semibold bg-amber-500/15 border border-amber-500/40 text-amber-400">● Pending Customization</span>`;
+  }
+  document.getElementById('dash-flow').textContent =
+    appState.classification === 'standard' ? 'Route: ✅ Standard (automated)' : 'Route: 🔥 Custom (AI Architect)';
+
+  const planEl = document.getElementById('dash-plan');
+  const plan = PLANS.find(p => p.id === appState.plan);
+  if (plan) {
+    const nextBill = new Date(Date.now() + 30*24*3600*1000).toLocaleDateString([], {month:'short', day:'numeric', year:'numeric'});
+    planEl.innerHTML = `
+      <div class="text-lg font-bold text-white">${plan.name}</div>
+      <div class="text-sm text-slate-300 mt-1">$${plan.price}/mo · <span class="text-emerald-400">Active</span></div>
+      <div class="text-xs text-slate-500 mt-2">Next billing: ${nextBill}</div>`;
+  } else if (appState.status === 'Pending Customization') {
+    planEl.innerHTML = `
+      <div class="text-sm text-amber-400 font-semibold">Custom quote pending</div>
+      <div class="text-xs text-slate-500 mt-2">Farhad will send a tailored plan & subscription link after review.</div>`;
+  } else {
+    planEl.innerHTML = `<div class="text-sm text-slate-500">No subscription yet</div>`;
+  }
+
+  const log = document.getElementById('activity-log');
+  if (!appState.activityLog.length) {
+    log.innerHTML = '<div class="text-slate-500">No activity yet.</div>';
+  } else {
+    log.innerHTML = appState.activityLog.map(e => `
+      <div class="flex gap-3">
+        <div class="log-dot" style="background:${e.color}"></div>
+        <div class="flex-1 text-slate-300">${e.text}</div>
+        <div class="text-xs text-slate-500 whitespace-nowrap">${e.time}</div>
+      </div>`).join('');
+  }
+}
+
+/* ================= SUPPORT → JUDY ================= */
+function askSupport() {
+  logActivity('Opened live support with <b class="text-white">Judy</b> 💬', '#a78bfa');
+  renderDashboard();
+  window.open(JUDY_URL, '_blank', 'noopener');
+}
+
+/* ================= RESET & RESTORE ================= */
+function resetAll() {
+  localStorage.removeItem('nofaDeliveryState');
+  appState = { selectedTool:null, answers:{}, classification:null, status:null, plan:null, activityLog:[] };
+  selectedPlanId = null;
+  show('screen-tools');
+}
+
+(function init() {
+  loadCatalog();
+  try {
+    const saved = JSON.parse(localStorage.getItem('nofaDeliveryState'));
+    if (saved && saved.selectedTool && saved.status) {
+      appState = saved;
+      renderDashboard();
+      show('screen-dashboard');
+    }
+  } catch(e){}
+})();
+</script>
+</body>
+</html>
