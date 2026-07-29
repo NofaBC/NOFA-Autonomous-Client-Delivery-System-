@@ -546,6 +546,14 @@ let TOOLS = [
   }
 ];
 
+/* Short showroom IDs → catalog slugs (direct slugs also work, e.g. ?tool=freshroute-ai) */
+const TOOL_MAP = {
+  dlyn: 'dlyn-ai',
+  affiliate: 'affiliateledger-ai',
+  commanddesk: 'commanddesk-ai',
+  techsupport: 'techsupport-ai'
+};
+
 const ONBOARDING_STEPS = [
   { key:'stripe', type:'info',
     html:`For payments, we connect <b>Stripe</b>.<br>Don't have an account yet? You can create one here → <a href="https://stripe.com" target="_blank" rel="noopener" class="text-indigo-400 font-semibold hover:underline">stripe.com</a> 🔗`,
@@ -1294,13 +1302,32 @@ function askSupport() {
 /* ================= RESET & RESTORE ================= */
 function resetAll() {
   localStorage.removeItem('nofaDeliveryState');
-  appState = { selectedTool:null, answers:{}, classification:null, status:null, plan:null, activityLog:[], chatHistory:[] };
-  selectedPlanId = null;
-  show('screen-tools');
+  window.location.href = window.location.pathname;  // clean reload — clears session AND tool context
 }
 
-(function init() {
-  loadCatalog();
+function freshState() {
+  return { selectedTool:null, answers:{}, classification:null, status:null, plan:null, activityLog:[], chatHistory:[], toolId:null };
+}
+
+async function init() {
+  await loadCatalog();  // ensure TOOLS is populated before resolving URL context
+
+  const toolFromURL = new URLSearchParams(window.location.search).get('tool');
+
+  /* Priority 1: New session from showroom link (?tool=...) */
+  if (toolFromURL) {
+    const slug = TOOL_MAP[toolFromURL.toLowerCase()] || toolFromURL.toLowerCase();
+    const tool = TOOLS.find(t => t.slug === slug);
+    if (tool) {
+      localStorage.removeItem('nofaDeliveryState');   // clear previous session to avoid conflicts
+      appState = freshState();
+      appState.toolId = tool.slug;
+      selectTool(tool);                                // skip selection — start onboarding directly
+      return;
+    }
+  }
+
+  /* Priority 2: Returning user → restore workspace */
   try {
     const saved = JSON.parse(localStorage.getItem('nofaDeliveryState'));
     if (saved && saved.selectedTool && saved.status) {
@@ -1308,9 +1335,14 @@ function resetAll() {
       if (!appState.chatHistory) appState.chatHistory = [];
       renderWorkspace('status');
       show('screen-dashboard');
+      return;
     }
   } catch(e){}
-})();
+
+  /* Priority 3: First-time visitor → tool selection (default screen) */
+}
+
+init();
 </script>
 </body>
 </html>
