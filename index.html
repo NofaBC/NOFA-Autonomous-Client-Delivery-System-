@@ -49,6 +49,10 @@
   ::-webkit-scrollbar { width:8px; } ::-webkit-scrollbar-thumb { background:rgba(255,255,255,.12); border-radius:8px; }
   .log-dot { width:8px; height:8px; border-radius:50%; margin-top:6px; flex-shrink:0; }
   .status-badge { font-size:10px; padding:3px 8px; border-radius:999px; border:1px solid; white-space:nowrap; }
+  .ws-nav-btn { display:flex; align-items:center; gap:8px; padding:10px 12px; border-radius:10px; font-size:13px; color:#cbd5e1; white-space:nowrap; text-align:left; transition:background .15s ease; width:100%; }
+  .ws-nav-btn:hover { background:rgba(255,255,255,.06); }
+  .ws-nav-btn.ws-active { background:rgba(99,102,241,.2); color:#fff; font-weight:600; }
+  .task-pill { font-size:10px; padding:2px 8px; border-radius:999px; border:1px solid rgba(255,255,255,.15); color:#94a3b8; white-space:nowrap; }
   .modal-bg { background:rgba(0,0,0,.65); backdrop-filter:blur(4px); }
   .field { background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.1); border-radius:10px; padding:10px 14px; font-size:14px; color:#fff; outline:none; width:100%; }
   .field:focus { border-color:#6366f1; }
@@ -67,7 +71,7 @@
   </div>
   <div class="flex items-center gap-3">
     <a href="https://judyva.vercel.app/?tenant=NOFA-Business-Consulting" target="_blank" rel="noopener" class="btn-primary px-4 py-2 rounded-lg text-sm text-white font-semibold">💬 Talk to Judy</a>
-    <div class="text-xs px-3 py-1.5 rounded-full glass text-indigo-300">PROTOTYPE · v0.3</div>
+    <div class="text-xs px-3 py-1.5 rounded-full glass text-indigo-300">PROTOTYPE · v0.4</div>
   </div>
 </header>
 
@@ -174,55 +178,22 @@
   </div>
 </section>
 
-<!-- ============ STEP 5: DASHBOARD ============ -->
+<!-- ============ STEP 5: CLIENT WORKSPACE ============ -->
 <section id="screen-dashboard" class="screen">
   <div class="mt-6 flex items-center justify-between flex-wrap gap-3">
     <div>
-      <h2 class="text-2xl font-bold text-white">Client Dashboard</h2>
-      <p class="text-slate-400 text-sm mt-1">NOFA AI Factory · Delivery Console</p>
+      <h2 class="text-2xl font-bold text-white">Client Workspace</h2>
+      <p class="text-slate-400 text-sm mt-1">NOFA AI Factory · Everything about your deployment, in one place</p>
     </div>
-    <button onclick="resetAll()" class="btn-ghost px-4 py-2 rounded-lg text-sm text-slate-300">↺ Start New Onboarding</button>
-  </div>
-
-  <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-5 mt-6">
-    <!-- Tool card -->
-    <div class="glass rounded-2xl p-6">
-      <div class="text-xs uppercase tracking-wider text-slate-400">Tool Selected</div>
-      <div id="dash-tool" class="text-lg font-bold text-white mt-2">—</div>
-      <div id="dash-tool-desc" class="text-xs text-slate-400 mt-1 leading-relaxed"></div>
-      <a id="dash-tool-link" href="#" target="_blank" rel="noopener" class="text-xs text-indigo-400 hover:underline inline-block mt-3">View in catalog →</a>
-    </div>
-    <!-- Status card -->
-    <div class="glass rounded-2xl p-6">
-      <div class="text-xs uppercase tracking-wider text-slate-400">Status</div>
-      <div id="dash-status" class="mt-3"></div>
-      <div id="dash-flow" class="text-xs text-slate-500 mt-2"></div>
-    </div>
-    <!-- Subscription card -->
-    <div class="glass rounded-2xl p-6">
-      <div class="text-xs uppercase tracking-wider text-slate-400">Subscription</div>
-      <div id="dash-plan" class="mt-3"></div>
-    </div>
-    <!-- Weekly report preview -->
-    <div class="glass rounded-2xl p-6">
-      <div class="text-xs uppercase tracking-wider text-slate-400">Weekly Report Preview</div>
-      <div class="flex items-end gap-2 h-16 mt-3">
-        <div class="bar w-full" style="height:35%"></div><div class="bar w-full" style="height:55%"></div>
-        <div class="bar w-full" style="height:45%"></div><div class="bar w-full" style="height:70%"></div>
-        <div class="bar w-full" style="height:60%"></div><div class="bar w-full" style="height:85%"></div>
-        <div class="bar w-full" style="height:100%"></div>
-      </div>
-      <div class="text-xs text-slate-500 mt-2">↑ +18% this week (simulated)</div>
-    </div>
-  </div>
-
-  <!-- Activity log -->
-  <div class="glass rounded-2xl p-6 mt-5">
-    <div class="flex items-center justify-between flex-wrap gap-3">
-      <div class="text-xs uppercase tracking-wider text-slate-400">Activity Log</div>
+    <div class="flex gap-2">
       <button onclick="askSupport()" class="btn-primary px-4 py-2 rounded-lg text-sm text-white font-semibold">💬 Ask Support</button>
+      <button onclick="resetAll()" class="btn-ghost px-4 py-2 rounded-lg text-sm text-slate-300">↺ New Onboarding</button>
     </div>
-    <div id="activity-log" class="mt-4 space-y-3 text-sm"></div>
+  </div>
+
+  <div class="flex flex-col lg:flex-row gap-5 mt-6">
+    <nav id="ws-nav" class="glass rounded-2xl p-2.5 lg:w-64 flex lg:flex-col gap-1 overflow-x-auto flex-shrink-0"></nav>
+    <div id="ws-panel" class="flex-1 min-w-0"></div>
   </div>
 </section>
 </main>
@@ -280,7 +251,8 @@ let appState = {
   classification: null,   // "standard" | "custom"
   status: null,           // "Active" | "Pending Customization"
   plan: null,             // plan id
-  activityLog: []
+  activityLog: [],
+  chatHistory: []         // full Judy onboarding transcript
 };
 
 /* Catalog snapshot (fallback if live fetch fails) — live list loads from nofaaifactory.com */
@@ -720,6 +692,7 @@ function selectTool(tool) {
   appState.classification = null;
   appState.status = null;
   appState.plan = null;
+  appState.chatHistory = [];
   logActivity(`Selected <b class="text-white">${esc(tool.name)}</b> — onboarding initiated`, '#818cf8');
   if (tool.status && tool.status !== 'live_saas') alertPrototypeInterest(tool);
   document.getElementById('chat-tool-name').textContent = tool.name;
@@ -752,6 +725,8 @@ function judySay(html, cb) {
     msg.innerHTML = `<div class="w-8 h-8 rounded-full avatar-judy flex items-center justify-center font-bold text-white text-sm flex-shrink-0">J</div>
       <div class="bubble-judy px-4 py-3 text-sm text-slate-200 max-w-[80%]">${html}</div>`;
     box.appendChild(msg); scrollChat();
+    appState.chatHistory.push({ who:'judy', html, time: now() });
+    save();
     if (cb) setTimeout(cb, 450);
   }, 1000 + Math.random() * 500);
 }
@@ -761,6 +736,8 @@ function userSay(text) {
   msg.className = 'flex justify-end';
   msg.innerHTML = `<div class="bubble-user px-4 py-2.5 text-sm text-white max-w-[80%]">${text}</div>`;
   box.appendChild(msg); scrollChat();
+  appState.chatHistory.push({ who:'user', html: esc(text), time: now() });
+  save();
 }
 
 function askQuestion(i) {
@@ -952,71 +929,372 @@ function processPayment() {
   }, 1800);
 }
 
-/* ================= STEP 5: DASHBOARD ================= */
+/* ================= STEP 5: CLIENT WORKSPACE ================= */
+let currentWsSection = 'status';
+
+const WS_SECTIONS = [
+  { id:'status',   icon:'📊', label:'Current Status' },
+  { id:'progress', icon:'🚀', label:'Deployment Progress' },
+  { id:'tasks',    icon:'✅', label:'Tasks' },
+  { id:'docs',     icon:'📄', label:'Documents' },
+  { id:'messages', icon:'💬', label:'Messages' },
+  { id:'reports',  icon:'📈', label:'Weekly Reports' },
+  { id:'history',  icon:'🧠', label:'AI Conversation History' },
+  { id:'support',  icon:'🛟', label:'Support' }
+];
+
 function goToDashboard() {
   if (!appState.status) appState.status = appState.classification === 'standard' ? 'Active' : 'Pending Customization';
   save();
-  renderDashboard();
+  renderWorkspace('status');
   show('screen-dashboard');
 }
 
-function renderDashboard() {
-  const t = appState.selectedTool;
-  document.getElementById('dash-tool').innerHTML = t
-    ? `${esc(t.name)}<br><span class="status-badge inline-block mt-2" style="${statusStyle(t.status)}">${esc(t.statusLabel || t.status)}</span>`
-    : '—';
-  document.getElementById('dash-tool-desc').textContent = t ? (t.desc || '') : '';
-  document.getElementById('dash-tool-link').href = t && t.slug ? CATALOG_BASE + t.slug : 'https://www.nofaaifactory.com/catalog';
+function renderWorkspace(section) {
+  currentWsSection = section;
+  const nav = document.getElementById('ws-nav');
+  nav.innerHTML = WS_SECTIONS.map(s =>
+    `<button class="ws-nav-btn ${s.id === section ? 'ws-active' : ''}" onclick="renderWorkspace('${s.id}')">${s.icon} ${s.label}</button>`
+  ).join('');
+  document.getElementById('ws-panel').innerHTML = WS_RENDERERS[section]();
+  save();
+}
 
-  const statusEl = document.getElementById('dash-status');
-  if (appState.status === 'Active') {
-    statusEl.innerHTML = `<span class="px-3 py-1.5 rounded-full text-sm font-semibold bg-emerald-500/15 border border-emerald-500/40 text-emerald-400">● Active</span>`;
-  } else {
-    statusEl.innerHTML = `<span class="badge-pulse px-3 py-1.5 rounded-full text-sm font-semibold bg-amber-500/15 border border-amber-500/40 text-amber-400">● Pending Customization</span>`;
-  }
-  document.getElementById('dash-flow').textContent =
-    appState.classification === 'standard' ? 'Route: ✅ Standard (automated)' : 'Route: 🔥 Custom (AI Architect)';
+function activityHtml() {
+  if (!appState.activityLog.length) return '<div class="text-slate-500 text-sm">No activity yet.</div>';
+  return appState.activityLog.map(e => `
+    <div class="flex gap-3 text-sm">
+      <div class="log-dot" style="background:${e.color}"></div>
+      <div class="flex-1 text-slate-300">${e.text}</div>
+      <div class="text-xs text-slate-500 whitespace-nowrap">${e.time}</div>
+    </div>`).join('');
+}
 
-  const planEl = document.getElementById('dash-plan');
+function statusBadgeHtml() {
+  return appState.status === 'Active'
+    ? `<span class="px-3 py-1.5 rounded-full text-sm font-semibold bg-emerald-500/15 border border-emerald-500/40 text-emerald-400">● Active</span>`
+    : `<span class="badge-pulse px-3 py-1.5 rounded-full text-sm font-semibold bg-amber-500/15 border border-amber-500/40 text-amber-400">● Pending Customization</span>`;
+}
+
+function planHtml() {
   const plan = PLANS.find(p => p.id === appState.plan);
   if (plan) {
     const nextBill = new Date(Date.now() + 30*24*3600*1000).toLocaleDateString([], {month:'short', day:'numeric', year:'numeric'});
-    planEl.innerHTML = `
-      <div class="text-lg font-bold text-white">${plan.name}</div>
+    return `<div class="text-lg font-bold text-white">${plan.name}</div>
       <div class="text-sm text-slate-300 mt-1">$${plan.price}/mo · <span class="text-emerald-400">Active</span></div>
       <div class="text-xs text-slate-500 mt-2">Next billing: ${nextBill}</div>`;
-  } else if (appState.status === 'Pending Customization') {
-    planEl.innerHTML = `
-      <div class="text-sm text-amber-400 font-semibold">Custom quote pending</div>
+  }
+  if (appState.status === 'Pending Customization') {
+    return `<div class="text-sm text-amber-400 font-semibold">Custom quote pending</div>
       <div class="text-xs text-slate-500 mt-2">Farhad will send a tailored plan & subscription link after review.</div>`;
+  }
+  return `<div class="text-sm text-slate-500">No subscription yet</div>`;
+}
+
+function deploymentSteps() {
+  if (appState.classification === 'custom') return [
+    { label:'Onboarding with Judy', state:'done' },
+    { label:'Requirements classified → Custom Flow', state:'done' },
+    { label:'AI Architect review (Farhad)', state:'active' },
+    { label:'Custom configuration & build', state:'pending' },
+    { label:'Subscription activation', state:'pending' }
+  ];
+  return [
+    { label:'Onboarding with Judy', state:'done' },
+    { label:'Connecting Stripe', state:'done' },
+    { label:'Creating commission rules', state:'done' },
+    { label:'Initializing dashboard', state:'done' },
+    { label:'Subscription activation', state: appState.plan ? 'done' : 'active' }
+  ];
+}
+
+function taskList() {
+  const tasks = [{ label:'Complete onboarding with Judy', done:true }];
+  if (appState.classification === 'custom') {
+    tasks.push({ label:'AI Architect reviewing your requirements', done:false, tag:'In progress · Farhad' });
+    tasks.push({ label:'Review & approve custom quote', done:false, tag:'Waiting on quote' });
+    tasks.push({ label:'Choose subscription plan', done:false, tag:'After quote approval' });
   } else {
-    planEl.innerHTML = `<div class="text-sm text-slate-500">No subscription yet</div>`;
+    tasks.push({ label:'Automated system setup', done:true });
+    tasks.push({ label:'Choose subscription plan', done:!!appState.plan, tag: appState.plan ? null : 'Action needed' });
+    tasks.push({ label:'Explore your AI dashboard', done:false, tag:'Up next' });
+  }
+  return tasks;
+}
+
+function availableDocs() {
+  const docs = [
+    { type:'summary', icon:'📋', name:'Onboarding Summary', desc:'Your answers, classification, and selected tool.' },
+    { type:'setup',   icon:'🚀', name:'Deployment Report', desc:'Setup steps, progress, and current route.' }
+  ];
+  const plan = PLANS.find(p => p.id === appState.plan);
+  if (plan) docs.push({ type:'agreement', icon:'💳', name:'Subscription Agreement', desc:`${plan.name} plan — $${plan.price}/mo.` });
+  else if (appState.classification === 'custom') docs.push({ type:'quote', icon:'🔥', name:'Custom Quote Request', desc:'Escalation record sent to the AI Architect.' });
+  return docs;
+}
+
+const WS_RENDERERS = {
+  /* ---- Current Status ---- */
+  status() {
+    const t = appState.selectedTool || {};
+    return `
+    <div class="grid md:grid-cols-3 gap-4">
+      <div class="glass rounded-2xl p-5">
+        <div class="text-xs uppercase tracking-wider text-slate-400">Tool Selected</div>
+        <div class="text-base font-bold text-white mt-2">${esc(t.name || '—')}</div>
+        ${t.status ? `<span class="status-badge inline-block mt-2" style="${statusStyle(t.status)}">${esc(t.statusLabel || t.status)}</span>` : ''}
+        <div class="text-xs text-slate-400 mt-2 leading-relaxed">${esc(t.desc || '')}</div>
+        ${t.slug ? `<a href="${CATALOG_BASE + t.slug}" target="_blank" rel="noopener" class="text-xs text-indigo-400 hover:underline inline-block mt-2">View in catalog →</a>` : ''}
+      </div>
+      <div class="glass rounded-2xl p-5">
+        <div class="text-xs uppercase tracking-wider text-slate-400">Status</div>
+        <div class="mt-3">${statusBadgeHtml()}</div>
+        <div class="text-xs text-slate-500 mt-2">${appState.classification === 'standard' ? 'Route: ✅ Standard (automated)' : 'Route: 🔥 Custom (AI Architect)'}</div>
+      </div>
+      <div class="glass rounded-2xl p-5">
+        <div class="text-xs uppercase tracking-wider text-slate-400">Subscription</div>
+        <div class="mt-3">${planHtml()}</div>
+      </div>
+    </div>
+    <div class="glass rounded-2xl p-5 mt-4">
+      <div class="text-xs uppercase tracking-wider text-slate-400 mb-3">Activity Log</div>
+      <div class="space-y-3">${activityHtml()}</div>
+    </div>`;
+  },
+
+  /* ---- Deployment Progress ---- */
+  progress() {
+    const steps = deploymentSteps();
+    const doneCount = steps.filter(s => s.state === 'done').length;
+    const pct = Math.round(doneCount / steps.length * 100);
+    return `
+    <div class="glass rounded-2xl p-6">
+      <div class="flex items-center justify-between">
+        <div class="text-xs uppercase tracking-wider text-slate-400">Deployment Progress</div>
+        <div class="text-sm font-bold text-white">${pct}%</div>
+      </div>
+      <div class="w-full h-2 rounded-full bg-white/10 overflow-hidden mt-3">
+        <div class="progress-fill h-full" style="width:${pct}%"></div>
+      </div>
+      <div class="mt-6 space-y-1">
+        ${steps.map((s, i) => `
+        <div class="flex items-start gap-3 py-2">
+          <div class="flex flex-col items-center">
+            ${s.state === 'done'
+              ? '<div class="w-6 h-6 rounded-full bg-emerald-500/15 border border-emerald-500/50 flex items-center justify-center text-emerald-400 text-xs font-bold">✔</div>'
+              : s.state === 'active'
+                ? '<div class="w-6 h-6 rounded-full bg-amber-500/15 border border-amber-500/50 flex items-center justify-center"><div class="w-2 h-2 rounded-full bg-amber-400 badge-pulse"></div></div>'
+                : '<div class="w-6 h-6 rounded-full border border-white/15 flex items-center justify-center"><div class="w-2 h-2 rounded-full bg-white/20"></div></div>'}
+            ${i < steps.length - 1 ? '<div class="w-px flex-1 min-h-[14px]" style="background:rgba(255,255,255,.1)"></div>' : ''}
+          </div>
+          <div class="flex-1 pb-1">
+            <div class="text-sm ${s.state === 'done' ? 'text-slate-300' : s.state === 'active' ? 'text-amber-300 font-semibold' : 'text-slate-500'}">${s.label}</div>
+            ${s.state === 'active' ? '<div class="text-xs text-slate-500 mt-0.5">Currently in progress — you\'ll be notified when it moves.</div>' : ''}
+          </div>
+        </div>`).join('')}
+      </div>
+    </div>`;
+  },
+
+  /* ---- Tasks ---- */
+  tasks() {
+    const tasks = taskList();
+    const open = tasks.filter(t => !t.done).length;
+    return `
+    <div class="glass rounded-2xl p-6">
+      <div class="flex items-center justify-between">
+        <div class="text-xs uppercase tracking-wider text-slate-400">Tasks</div>
+        <div class="text-xs text-slate-400">${open} open · ${tasks.length - open} done</div>
+      </div>
+      <div class="mt-4 divide-y divide-white/5">
+        ${tasks.map(t => `
+        <div class="flex items-center gap-3 py-3">
+          <div class="w-5 h-5 rounded-md flex items-center justify-center text-xs font-bold ${t.done ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' : 'border border-white/20 text-transparent'}">✔</div>
+          <div class="flex-1 text-sm ${t.done ? 'text-slate-500 line-through' : 'text-slate-200'}">${t.label}</div>
+          ${t.tag && !t.done ? `<span class="task-pill">${t.tag}</span>` : ''}
+        </div>`).join('')}
+      </div>
+    </div>`;
+  },
+
+  /* ---- Documents ---- */
+  docs() {
+    return `
+    <div class="grid md:grid-cols-2 gap-4">
+      ${availableDocs().map(d => `
+      <div class="glass rounded-2xl p-5 flex flex-col">
+        <div class="text-2xl">${d.icon}</div>
+        <div class="text-sm font-bold text-white mt-2">${d.name}</div>
+        <div class="text-xs text-slate-400 mt-1 flex-1">${d.desc}</div>
+        <button onclick="downloadDoc('${d.type}')" class="btn-ghost mt-4 px-4 py-2 rounded-lg text-xs text-white font-semibold">⬇ Download</button>
+      </div>`).join('')}
+    </div>
+    <div class="text-xs text-slate-500 mt-4">Documents are generated from your live workspace data.</div>`;
+  },
+
+  /* ---- Messages ---- */
+  messages() {
+    return `
+    <div class="glass rounded-2xl p-6">
+      <div class="flex items-center justify-between flex-wrap gap-3">
+        <div class="text-xs uppercase tracking-wider text-slate-400">Messages & Notifications</div>
+        <button onclick="askSupport()" class="btn-primary px-4 py-2 rounded-lg text-xs text-white font-semibold">💬 Open live chat with Judy</button>
+      </div>
+      <div class="mt-5 space-y-3">
+        ${appState.activityLog.length ? appState.activityLog.map(e => `
+        <div class="flex gap-3 items-start">
+          <div class="w-8 h-8 rounded-full avatar-judy flex items-center justify-center font-bold text-white text-xs flex-shrink-0">N</div>
+          <div class="flex-1 glass rounded-xl px-4 py-2.5">
+            <div class="text-sm text-slate-200">${e.text}</div>
+            <div class="text-xs text-slate-500 mt-1">${e.time}</div>
+          </div>
+        </div>`).join('') : '<div class="text-slate-500 text-sm">No messages yet.</div>'}
+      </div>
+    </div>`;
+  },
+
+  /* ---- Weekly Reports ---- */
+  reports() {
+    return `
+    <div class="glass rounded-2xl p-6">
+      <div class="text-xs uppercase tracking-wider text-slate-400">Weekly Report</div>
+      <div class="grid grid-cols-3 gap-3 mt-4">
+        <div class="glass rounded-xl p-4 text-center"><div class="text-2xl font-bold text-white">128</div><div class="text-xs text-slate-400 mt-1">AI responses handled</div></div>
+        <div class="glass rounded-xl p-4 text-center"><div class="text-2xl font-bold text-white">9.5h</div><div class="text-xs text-slate-400 mt-1">Hours saved</div></div>
+        <div class="glass rounded-xl p-4 text-center"><div class="text-2xl font-bold text-white">34</div><div class="text-xs text-slate-400 mt-1">Tasks automated</div></div>
+      </div>
+      <div class="flex items-end gap-2 h-24 mt-6">
+        <div class="bar w-full" style="height:35%"></div><div class="bar w-full" style="height:55%"></div>
+        <div class="bar w-full" style="height:45%"></div><div class="bar w-full" style="height:70%"></div>
+        <div class="bar w-full" style="height:60%"></div><div class="bar w-full" style="height:85%"></div>
+        <div class="bar w-full" style="height:100%"></div>
+      </div>
+      <div class="flex justify-between text-[10px] text-slate-500 mt-1 px-0.5"><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span></div>
+      <div class="text-xs text-slate-500 mt-4">Activity trending ↑ +18% week-over-week (simulated). A full report is emailed every Monday.</div>
+    </div>`;
+  },
+
+  /* ---- AI Conversation History ---- */
+  history() {
+    const h = appState.chatHistory || [];
+    return `
+    <div class="glass rounded-2xl p-6">
+      <div class="text-xs uppercase tracking-wider text-slate-400">AI Conversation History</div>
+      <div class="text-xs text-slate-500 mt-1">Your complete onboarding session with Judy — always here for reference.</div>
+      <div class="mt-5 space-y-4 max-h-[420px] overflow-y-auto pr-1">
+        ${h.length ? h.map(m => m.who === 'judy' ? `
+        <div class="flex items-start gap-3">
+          <div class="w-7 h-7 rounded-full avatar-judy flex items-center justify-center font-bold text-white text-xs flex-shrink-0">J</div>
+          <div class="bubble-judy px-4 py-2.5 text-sm text-slate-200 max-w-[85%]">${m.html}<div class="text-[10px] text-slate-500 mt-1">${m.time}</div></div>
+        </div>` : `
+        <div class="flex justify-end">
+          <div class="bubble-user px-4 py-2.5 text-sm text-white max-w-[85%]">${m.html}<div class="text-[10px] text-indigo-200 mt-1">${m.time}</div></div>
+        </div>`).join('') : '<div class="text-slate-500 text-sm">No conversation recorded yet.</div>'}
+      </div>
+    </div>`;
+  },
+
+  /* ---- Support ---- */
+  support() {
+    return `
+    <div class="grid md:grid-cols-2 gap-4">
+      <a href="${JUDY_URL}" target="_blank" rel="noopener" class="glass rounded-2xl p-5 tool-card block">
+        <div class="text-2xl">💬</div>
+        <div class="text-sm font-bold text-white mt-2">Chat with Judy</div>
+        <div class="text-xs text-slate-400 mt-1">24/7 AI support — instant answers about your deployment.</div>
+        <div class="text-xs text-indigo-400 mt-3">Open live chat →</div>
+      </a>
+      <a href="mailto:supportdesk@nofabusinessconsulting.com" class="glass rounded-2xl p-5 tool-card block">
+        <div class="text-2xl">✉️</div>
+        <div class="text-sm font-bold text-white mt-2">Email Support Desk</div>
+        <div class="text-xs text-slate-400 mt-1">supportdesk@nofabusinessconsulting.com</div>
+        <div class="text-xs text-indigo-400 mt-3">Send email →</div>
+      </a>
+      <div class="glass rounded-2xl p-5">
+        <div class="text-2xl">🔥</div>
+        <div class="text-sm font-bold text-white mt-2">Escalations</div>
+        <div class="text-xs text-slate-400 mt-1">${appState.status === 'Pending Customization'
+          ? 'Your custom request is with <b class="text-white">Farhad (AI Architect)</b> — expect a response within 24 hours.'
+          : 'Custom work routes directly to Farhad, our AI Architect, with a Slack alert.'}</div>
+      </div>
+      <div class="glass rounded-2xl p-5">
+        <div class="text-2xl">⚡</div>
+        <div class="text-sm font-bold text-white mt-2">Response Times</div>
+        <div class="text-xs text-slate-400 mt-1">Judy: instant · Support desk: same business day · AI Architect: within 24 hours.</div>
+      </div>
+    </div>`;
+  }
+};
+
+/* ---- Generated Documents ---- */
+function downloadDoc(type) {
+  const t = appState.selectedTool || { name:'—' };
+  const plan = PLANS.find(p => p.id === appState.plan);
+  const a = appState.answers;
+  const stamp = new Date().toLocaleString();
+  let filename = 'NOFA-Document.txt';
+  let body = [];
+
+  const header = [
+    '════════════════════════════════════════',
+    ' NOFA AI Factory™ — Client Workspace',
+    '════════════════════════════════════════',
+    ` Generated: ${stamp}`,
+    ` Tool: ${t.name}${t.statusLabel ? ` (${t.statusLabel})` : ''}`,
+    ''
+  ];
+
+  if (type === 'summary') {
+    filename = 'NOFA-Onboarding-Summary.txt';
+    body = [
+      'ONBOARDING SUMMARY', '-----------------', '',
+      `Uses Stripe:                  ${a.stripe === 'yes' ? 'Yes / link provided' : 'No'}`,
+      `Has affiliates:               ${a.affiliates === 'yes' ? 'Yes' : 'No'}`,
+      `Needs custom commission rules: ${a.customRules === 'yes' ? 'Yes' : 'No'}`, '',
+      `Classification: ${appState.classification === 'standard' ? '✅ Standard Flow (automated)' : '🔥 Custom Flow (AI Architect)'}`,
+      `Status: ${appState.status || '—'}`
+    ];
+  } else if (type === 'setup') {
+    filename = 'NOFA-Deployment-Report.txt';
+    const steps = deploymentSteps();
+    body = ['DEPLOYMENT REPORT', '-----------------', '',
+      ...steps.map(s => `[${s.state === 'done' ? 'x' : ' '}] ${s.label}${s.state === 'active' ? '  ← in progress' : ''}`), '',
+      `Progress: ${Math.round(steps.filter(s => s.state === 'done').length / steps.length * 100)}%`
+    ];
+  } else if (type === 'agreement' && plan) {
+    filename = 'NOFA-Subscription-Agreement.txt';
+    body = ['SUBSCRIPTION AGREEMENT (DEMO)', '----------------------------', '',
+      `Plan: ${plan.name} — $${plan.price}/month`, `Tool: ${t.name}`, 'Billing: monthly, cancel anytime', '',
+      'Includes:', ...plan.features.map(f => ` • ${f}`)
+    ];
+  } else if (type === 'quote') {
+    filename = 'NOFA-Custom-Quote-Request.txt';
+    body = ['CUSTOM QUOTE REQUEST', '-------------------', '',
+      `Tool: ${t.name}`, 'Route: Custom Flow — escalated to Farhad (AI Architect)', '',
+      'Requirements:', ` • Custom commission rules: ${a.customRules === 'yes' ? 'Yes' : 'No'}`,
+      '', 'A tailored quote and subscription link will follow within 24 hours.'
+    ];
   }
 
-  const log = document.getElementById('activity-log');
-  if (!appState.activityLog.length) {
-    log.innerHTML = '<div class="text-slate-500">No activity yet.</div>';
-  } else {
-    log.innerHTML = appState.activityLog.map(e => `
-      <div class="flex gap-3">
-        <div class="log-dot" style="background:${e.color}"></div>
-        <div class="flex-1 text-slate-300">${e.text}</div>
-        <div class="text-xs text-slate-500 whitespace-nowrap">${e.time}</div>
-      </div>`).join('');
-  }
+  const blob = new Blob([header.join('\n') + body.join('\n')], { type:'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url; link.download = filename; link.click();
+  URL.revokeObjectURL(url);
+  logActivity(`Downloaded <b class="text-white">${filename}</b> 📄`, '#818cf8');
 }
 
 /* ================= SUPPORT → JUDY ================= */
 function askSupport() {
   logActivity('Opened live support with <b class="text-white">Judy</b> 💬', '#a78bfa');
-  renderDashboard();
+  if (document.getElementById('screen-dashboard').classList.contains('active')) renderWorkspace(currentWsSection);
   window.open(JUDY_URL, '_blank', 'noopener');
 }
 
 /* ================= RESET & RESTORE ================= */
 function resetAll() {
   localStorage.removeItem('nofaDeliveryState');
-  appState = { selectedTool:null, answers:{}, classification:null, status:null, plan:null, activityLog:[] };
+  appState = { selectedTool:null, answers:{}, classification:null, status:null, plan:null, activityLog:[], chatHistory:[] };
   selectedPlanId = null;
   show('screen-tools');
 }
@@ -1027,7 +1305,8 @@ function resetAll() {
     const saved = JSON.parse(localStorage.getItem('nofaDeliveryState'));
     if (saved && saved.selectedTool && saved.status) {
       appState = saved;
-      renderDashboard();
+      if (!appState.chatHistory) appState.chatHistory = [];
+      renderWorkspace('status');
       show('screen-dashboard');
     }
   } catch(e){}
