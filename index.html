@@ -232,6 +232,7 @@
 const JUDY_URL = 'https://judyva.vercel.app/?tenant=NOFA-Business-Consulting';
 const CATALOG_API = 'https://www.nofaaifactory.com/api/products';
 const CATALOG_BASE = 'https://www.nofaaifactory.com/products/';
+const SUPPORT_EMAIL = 'supportdesk@nofabusinessconsulting.com';
 
 /* 👇 Paste your Slack Incoming Webhook URL here to enable REAL notifications.
    (Slack App → Incoming Webhooks → copy https://hooks.slack.com/services/…)
@@ -555,12 +556,6 @@ const TOOL_MAP = {
 };
 
 const ONBOARDING_STEPS = [
-  { key:'stripe', type:'info',
-    html:`For payments, we connect <b>Stripe</b>.<br>Don't have an account yet? You can create one here → <a href="https://stripe.com" target="_blank" rel="noopener" class="text-indigo-400 font-semibold hover:underline">stripe.com</a> 🔗`,
-    replies:[
-      { label:'I have Stripe ✔', value:'yes' },
-      { label:"I'll set it up →", value:'yes', note:'Client will create a Stripe account (link provided)' }
-    ] },
   { key:'affiliates', type:'question', text:'Do you have affiliates already?',
     replies:[ { label:'Yes', value:'yes' }, { label:'No', value:'no' } ] },
   { key:'customRules', type:'question', text:'Do you need custom commission rules?',
@@ -578,17 +573,23 @@ function statusMessage(tool) {
   return map[tool.status] || `ℹ️ <b>${esc(tool.name)}</b> status: ${esc(tool.statusLabel || tool.status || 'available')}.`;
 }
 
+/* ================= COMMERCIAL ROUTING ================= */
+function commercialMessage(tool) {
+  if (tool.status === 'live_saas') {
+    if (tool.subscriptionUrl) {
+      const url = esc(tool.subscriptionUrl);
+      return `💳 <b>${esc(tool.name)}</b> is available by subscription. If you'd like to sign up, use the secure subscription link: <a href="${url}" target="_blank" rel="noopener" class="text-indigo-400 font-semibold hover:underline">Subscribe to ${esc(tool.name)} →</a>`;
+    }
+    return `💳 <b>${esc(tool.name)}</b> is a Live SaaS. For the current subscription link, please contact <a href="mailto:${SUPPORT_EMAIL}" class="text-indigo-400 font-semibold hover:underline">${SUPPORT_EMAIL}</a>.`;
+  }
+  return `✉️ <b>${esc(tool.name)}</b> is currently a prototype or customized solution. For pricing, availability, or customization, please contact <a href="mailto:${SUPPORT_EMAIL}" class="text-indigo-400 font-semibold hover:underline">${SUPPORT_EMAIL}</a>.`;
+}
+
 /* ================= CLASSIFICATION (CORE LOGIC) ================= */
 function classifyRequest(answers) {
-  if (
-    answers.stripe === "yes" &&
-    answers.affiliates === "yes" &&
-    answers.customRules === "no"
-  ) {
-    return "standard";
-  } else {
-    return "custom";
-  }
+  const tool = appState.selectedTool || {};
+  if (tool.status !== 'live_saas') return 'custom';
+  return answers.customRules === 'yes' ? 'custom' : 'standard';
 }
 
 /* ================= HELPERS ================= */
@@ -653,7 +654,8 @@ async function loadCatalog() {
     if (data && Array.isArray(data.products) && data.products.length) {
       TOOLS = data.products.map(p => ({
         name: p.name, slug: p.slug, desc: p.shortDescription,
-        status: p.status, statusLabel: p.statusLabel || p.status
+        status: p.status, statusLabel: p.statusLabel || p.status,
+        subscriptionUrl: p.subscriptionUrl || p.stripeCheckoutUrl || p.checkoutUrl || ''
       }));
       document.getElementById('catalog-meta').textContent = `🟢 Live · ${TOOLS.length} products`;
       renderTools();
@@ -709,7 +711,7 @@ function selectTool(tool) {
   show('screen-chat');
   setTimeout(() => {
     judySay(`Great choice. Let's set up <b>${esc(tool.name)}</b>.`, () => {
-      judySay(statusMessage(tool) + '<br>I need a few details to get started.', () => askQuestion(0));
+      judySay(statusMessage(tool) + '<br><br>' + commercialMessage(tool) + '<br><br>I need a few details to determine the right delivery path.', () => askQuestion(0));
     });
   }, 500);
 }
@@ -791,7 +793,7 @@ function finishOnboarding() {
 
 /* ================= STEP 4a: STANDARD FLOW ================= */
 function runSetupAnimation() {
-  const steps = ['Connecting Stripe', 'Creating commission rules', 'Initializing dashboard'];
+  const steps = ['Preparing subscription path', 'Creating delivery rules', 'Initializing dashboard'];
   const container = document.getElementById('setup-steps');
   const progress = document.getElementById('setup-progress');
   document.getElementById('standard-done').classList.add('hidden');
@@ -830,7 +832,7 @@ function runSetupAnimation() {
 
 /* ================= STEP 4b: CUSTOM FLOW + SLACK ================= */
 function renderCustomSummary() {
-  const labels = { stripe:'Uses Stripe', affiliates:'Has affiliates', customRules:'Needs custom commission rules' };
+  const labels = { affiliates:'Has affiliates', customRules:'Needs custom commission rules' };
   const box = document.getElementById('custom-summary');
   box.innerHTML = '';
   Object.keys(labels).forEach(k => {
@@ -858,7 +860,7 @@ async function escalate() {
   const text =
     `🔥 *Custom AI request — NOFA Autonomous Client Delivery*\n` +
     `• Tool: *${appState.selectedTool.name}* (${appState.selectedTool.statusLabel || appState.selectedTool.status})\n` +
-    `• Stripe: ${a.stripe === 'yes' ? 'Yes/link provided' : 'No'}  |  Affiliates: ${a.affiliates === 'yes' ? 'Yes' : 'No'}  |  Custom rules: ${a.customRules === 'yes' ? 'Yes' : 'No'}\n` +
+    `• Affiliates: ${a.affiliates === 'yes' ? 'Yes' : 'No'}  |  Custom rules: ${a.customRules === 'yes' ? 'Yes' : 'No'}\n` +
     `• Route: Custom Flow (AI Architect review needed)\n` +
     `• Time: ${new Date().toLocaleString()}`;
   const result = await notifySlack(text);
@@ -1009,7 +1011,7 @@ function deploymentSteps() {
   ];
   return [
     { label:'Onboarding with Judy', state:'done' },
-    { label:'Connecting Stripe', state:'done' },
+    { label:'Preparing subscription path', state:'done' },
     { label:'Creating commission rules', state:'done' },
     { label:'Initializing dashboard', state:'done' },
     { label:'Subscription activation', state: appState.plan ? 'done' : 'active' }
