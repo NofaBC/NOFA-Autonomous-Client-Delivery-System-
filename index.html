@@ -140,7 +140,7 @@
       <div class="text-center">
         <div class="w-16 h-16 mx-auto rounded-full bg-amber-500/15 border border-amber-500/40 flex items-center justify-center text-3xl">🔥</div>
         <h2 class="text-2xl font-bold text-white mt-4">Custom Flow</h2>
-        <p class="text-slate-300 mt-2">This requires a <span class="text-amber-400 font-semibold">custom AI configuration</span>.</p>
+        <p class="text-slate-300 mt-2">This request requires <span class="text-amber-400 font-semibold">customization or guided delivery</span>.</p>
       </div>
 
       <div class="mt-8 max-w-md mx-auto">
@@ -555,12 +555,29 @@ const TOOL_MAP = {
   techsupport: 'techsupport-ai'
 };
 
-const ONBOARDING_STEPS = [
-  { key:'affiliates', type:'question', text:'Do you have affiliates already?',
-    replies:[ { label:'Yes', value:'yes' }, { label:'No', value:'no' } ] },
-  { key:'customRules', type:'question', text:'Do you need custom commission rules?',
-    replies:[ { label:'Yes', value:'yes' }, { label:'No', value:'no' } ] }
-];
+function getOnboardingSteps(tool) {
+  const slug = (tool && tool.slug ? tool.slug : '').toLowerCase();
+
+  // Affiliate-specific questions belong only to affiliate products.
+  if (slug.includes('affiliateledger') || slug.includes('affiliate')) {
+    return [
+      { key:'affiliates', type:'question', text:'Do you already have an affiliate program?',
+        replies:[ { label:'Yes', value:'yes' }, { label:'No', value:'no' } ] },
+      { key:'customRules', type:'question', text:'Do you need custom commission or payout rules?',
+        replies:[ { label:'Yes', value:'yes' }, { label:'No', value:'no' } ] },
+      { key:'deliveryPreference', type:'question', text:'Would you like the standard setup, or do you need customization?',
+        replies:[ { label:'Standard setup', value:'standard' }, { label:'I need customization', value:'custom' } ] }
+    ];
+  }
+
+  // Universal NOFA onboarding: product-agnostic and focused on delivery.
+  return [
+    { key:'deliveryPreference', type:'question', text:'Would you like to use this solution as offered, or do you need it customized for your organization?',
+      replies:[ { label:'Use it as offered', value:'standard' }, { label:'I need customization', value:'custom' } ] },
+    { key:'readiness', type:'question', text:'Are you ready to move forward, or are you still exploring?',
+      replies:[ { label:'Ready to move forward', value:'ready' }, { label:'Still exploring', value:'exploring' } ] }
+  ];
+}
 
 /* Product status messaging — Judy sets expectations based on catalog status */
 function statusMessage(tool) {
@@ -589,7 +606,9 @@ function commercialMessage(tool) {
 function classifyRequest(answers) {
   const tool = appState.selectedTool || {};
   if (tool.status !== 'live_saas') return 'custom';
-  return answers.customRules === 'yes' ? 'custom' : 'standard';
+  if (answers.deliveryPreference === 'custom') return 'custom';
+  if (answers.customRules === 'yes') return 'custom';
+  return 'standard';
 }
 
 /* ================= HELPERS ================= */
@@ -751,8 +770,9 @@ function userSay(text) {
 }
 
 function askQuestion(i) {
-  if (i >= ONBOARDING_STEPS.length) { finishOnboarding(); return; }
-  const step = ONBOARDING_STEPS[i];
+  const steps = getOnboardingSteps(appState.selectedTool);
+  if (i >= steps.length) { finishOnboarding(); return; }
+  const step = steps[i];
   judySay(step.type === 'info' ? step.html : step.text, () => {
     const qr = document.getElementById('quick-replies');
     qr.innerHTML = '';
@@ -793,7 +813,7 @@ function finishOnboarding() {
 
 /* ================= STEP 4a: STANDARD FLOW ================= */
 function runSetupAnimation() {
-  const steps = ['Preparing subscription path', 'Creating delivery rules', 'Initializing dashboard'];
+  const steps = ['Preparing delivery path', 'Applying product configuration', 'Initializing client workspace'];
   const container = document.getElementById('setup-steps');
   const progress = document.getElementById('setup-progress');
   document.getElementById('standard-done').classList.add('hidden');
@@ -832,15 +852,27 @@ function runSetupAnimation() {
 
 /* ================= STEP 4b: CUSTOM FLOW + SLACK ================= */
 function renderCustomSummary() {
-  const labels = { affiliates:'Has affiliates', customRules:'Needs custom commission rules' };
+  const labels = {
+    affiliates:'Has affiliate program',
+    customRules:'Needs custom commission / payout rules',
+    deliveryPreference:'Delivery preference',
+    readiness:'Current intent'
+  };
+  const displayValue = (key, value) => {
+    if (key === 'deliveryPreference') return value === 'custom' ? 'Customization needed' : 'Use as offered';
+    if (key === 'readiness') return value === 'ready' ? 'Ready to move forward' : 'Still exploring';
+    if (value === 'yes') return 'Yes';
+    if (value === 'no') return 'No';
+    return value || '—';
+  };
   const box = document.getElementById('custom-summary');
   box.innerHTML = '';
-  Object.keys(labels).forEach(k => {
-    const v = appState.answers[k] || '—';
-    const yes = v === 'yes';
-    box.innerHTML += `<div class="flex justify-between px-4 py-3">
+  Object.keys(appState.answers).forEach(k => {
+    if (!labels[k]) return;
+    const v = appState.answers[k];
+    box.innerHTML += `<div class="flex justify-between gap-4 px-4 py-3">
       <span class="text-slate-400">${labels[k]}</span>
-      <span class="font-semibold ${yes ? 'text-emerald-400' : 'text-rose-400'}">${yes ? 'Yes' : 'No'}</span></div>`;
+      <span class="font-semibold text-white text-right">${esc(displayValue(k, v))}</span></div>`;
   });
   box.innerHTML += `<div class="flex justify-between px-4 py-3">
     <span class="text-slate-400">Selected tool</span><span class="font-semibold text-white">${esc(appState.selectedTool.name)}</span></div>`;
@@ -860,7 +892,7 @@ async function escalate() {
   const text =
     `🔥 *Custom AI request — NOFA Autonomous Client Delivery*\n` +
     `• Tool: *${appState.selectedTool.name}* (${appState.selectedTool.statusLabel || appState.selectedTool.status})\n` +
-    `• Affiliates: ${a.affiliates === 'yes' ? 'Yes' : 'No'}  |  Custom rules: ${a.customRules === 'yes' ? 'Yes' : 'No'}\n` +
+    `• Delivery: ${a.deliveryPreference === 'custom' ? 'Customization requested' : 'Standard / as offered'}${a.affiliates ? `  |  Affiliates: ${a.affiliates === 'yes' ? 'Yes' : 'No'}` : ''}${a.customRules ? `  |  Custom rules: ${a.customRules === 'yes' ? 'Yes' : 'No'}` : ''}\n` +
     `• Route: Custom Flow (AI Architect review needed)\n` +
     `• Time: ${new Date().toLocaleString()}`;
   const result = await notifySlack(text);
@@ -1012,7 +1044,7 @@ function deploymentSteps() {
   return [
     { label:'Onboarding with Judy', state:'done' },
     { label:'Preparing subscription path', state:'done' },
-    { label:'Creating commission rules', state:'done' },
+    { label:'Applying product configuration', state:'done' },
     { label:'Initializing dashboard', state:'done' },
     { label:'Subscription activation', state: appState.plan ? 'done' : 'active' }
   ];
@@ -1259,8 +1291,10 @@ function downloadDoc(type) {
     body = [
       'ONBOARDING SUMMARY', '-----------------', '',
       `Uses Stripe:                  ${a.stripe === 'yes' ? 'Yes / link provided' : 'No'}`,
-      `Has affiliates:               ${a.affiliates === 'yes' ? 'Yes' : 'No'}`,
-      `Needs custom commission rules: ${a.customRules === 'yes' ? 'Yes' : 'No'}`, '',
+      `Delivery preference:          ${a.deliveryPreference === 'custom' ? 'Customization needed' : 'Use as offered'}`,
+      `Readiness:                    ${a.readiness === 'ready' ? 'Ready to move forward' : a.readiness === 'exploring' ? 'Still exploring' : '—'}`,
+      ...(a.affiliates ? [`Has affiliate program:           ${a.affiliates === 'yes' ? 'Yes' : 'No'}`] : []),
+      ...(a.customRules ? [`Needs custom commission rules: ${a.customRules === 'yes' ? 'Yes' : 'No'}`] : []), '',
       `Classification: ${appState.classification === 'standard' ? '✅ Standard Flow (automated)' : '🔥 Custom Flow (AI Architect)'}`,
       `Status: ${appState.status || '—'}`
     ];
@@ -1281,8 +1315,10 @@ function downloadDoc(type) {
     filename = 'NOFA-Custom-Quote-Request.txt';
     body = ['CUSTOM QUOTE REQUEST', '-------------------', '',
       `Tool: ${t.name}`, 'Route: Custom Flow — escalated to Farhad (AI Architect)', '',
-      'Requirements:', ` • Custom commission rules: ${a.customRules === 'yes' ? 'Yes' : 'No'}`,
-      '', 'A tailored quote and subscription link will follow within 24 hours.'
+      'Requirements:',
+      ` • Delivery preference: ${a.deliveryPreference === 'custom' ? 'Customization needed' : 'Use as offered'}`,
+      ...(a.customRules ? [` • Custom commission rules: ${a.customRules === 'yes' ? 'Yes' : 'No'}`] : []),
+      '', `For more information: ${SUPPORT_EMAIL}`
     ];
   }
 
